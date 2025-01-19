@@ -1,26 +1,91 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CardCaddy - Golf Score Tracker</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KyZXEJr+5n9z6Rk4Q2klx9uJq44+XU1zYl4scS0dhgHg5+sf5HYZmQpFJop7mf4t" crossorigin="anonymous">
+    <meta charset="UTF-8">
+    <!-- CSS only -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-Zenh87qX5JnK2Jl0vWa8Ck2rdkQ2Bzep5IDxbcnCeuOxjzrPF/et3URy9Bv1WTRi" crossorigin="anonymous">
+    <!-- JavaScript Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-OERcA2EqjJCMA+/3y+gxIOqMEjwtxJY7qPCqsdltbNJuaOe923+mo//f6V8Qbsw3" crossorigin="anonymous"></script>
+    
+    <title>API Paiment Mensuel</title>
+
+    <style>
+        input#result::-webkit-input-placeholder {
+            color: #0d6efd;
+            opacity: 1;
+            font-size: larger;
+            font-weight: bolder;
+        }
+        #result{
+            background-color: white;
+            text-align: center;
+        }
+    </style>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+
 </head>
 <body>
+    <div class="px-4 py-5 my-5 text-center">
+        <section>
+        <h1 class="display-5 fw-bold">Welcome to CardCaddy</h1>
+        <div class="col-lg-6 mx-auto">
+          <p class="lead mb-4">CardCaddy is a golf score tracking app that scans and digitizes golf scorecards using OCR technology. It allows players to easily capture scores, calculate averages, and gain insights into their game. The app features team login, customizable player profiles, and supports image uploads and processing via AWS services like Lambda and S3.</p>
 
-  <div class="container">
-    <header class="my-5 text-center">
-      <h1>Welcome to CardCaddy</h1>
-      <p>Your digital golf scorecard</p>
-    </header>
-
-    <div class="row">
-      <div class="col text-center">
-        <button class="btn btn-primary">Start Scanning</button>
+          <h1>Upload an Image to Get Total</h1>
+    
+          <!-- File input to select an image -->
+          <input type="file" id="imageInput" accept="image/*">
+          <button onclick="uploadImage()">Scan and Get Total</button>
+      
+          <h2>Total: <span id="total">Waiting for image...</span></h2>
+          
+        </div>
       </div>
-    </div>
-  </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js" integrity="sha384-pzjw8f+ua7Kw1TIq0v8FqOxhPp42r9aNk3+oFvdy2YZ5YtW+t2+qCrf54Hh2mjmy" crossorigin="anonymous"></script>
+      <script>
+        // Function to upload the image to Lambda
+        async function uploadImage() {
+            const fileInput = document.getElementById('imageInput');
+            const file = fileInput.files[0];
+
+            if (file) {
+                // Convert the image to base64
+                const reader = new FileReader();
+                reader.onloadend = async function () {
+                    const base64Image = reader.result.split(',')[1]; // Extract base64 string from Data URL
+                    console.log(base64Image)
+                    // Prepare the request body
+                    const requestBody = {
+                        image: "testting"
+                        /*image: base64Image*/
+                    };
+
+                    // Call the API Gateway endpoint to invoke the Lambda function
+                    const apiEndpoint = "https://vokrm8ygac.execute-api.us-east-2.amazonaws.com/test"; // Replace with your API endpoint
+                    try {
+                        const response = await fetch(apiEndpoint, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(requestBody)
+                        });
+
+                        const data = await response.json();
+                        const total = data.total;
+
+                        // Update the result in the HTML
+                        document.getElementById('total').innerHTML = total;
+                    } catch (error) {
+                        console.error('Error:', error);
+                    }
+                };
+                reader.readAsDataURL(file); // Convert file to base64
+            } else {
+                alert("Please select an image file.");
+            }
+        }
+    </script>
 </body>
 </html>
