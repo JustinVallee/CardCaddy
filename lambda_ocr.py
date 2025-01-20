@@ -1,48 +1,39 @@
-import json
 import pytesseract
+import boto3
 from PIL import Image
-import base64
 from io import BytesIO
-import re
+
+# Initialize S3 client
+s3_client = boto3.client('s3')
 
 def lambda_handler(event, context):
     try:
-        # Decode the base64 image data from the request body
-        body = json.loads(event['body'])
-        image_data = body['image']
+        # Get bucket name and file name from the event
+        bucket_name = event['bucket_name']
+        image_key = event['file_name']
+        
+        # Fetch image from S3
+        response = s3_client.get_object(Bucket=bucket_name, Key=image_key)
+        image_content = response['Body'].read()
 
-        # Clean the base64 data (remove newlines)
-        #image_data = image_data.replace('\n', '')
+        # Load image using PIL
+        image = Image.open(BytesIO(image_content))
 
-        # Decode the image from base64
-        #image_bytes = base64.b64decode(image_data)
-        #image = Image.open(BytesIO(image_bytes))  # Use Pillow to handle the image data
+        # Extract text using pytesseract
+        extracted_text = pytesseract.image_to_string(image)
 
-        # Perform OCR to extract text
-        #text = pytesseract.image_to_string(image)
-
-        # Extract numbers from the OCR result using regex
-        #numbers = [int(num) for num in re.findall(r'\d+', text)]  # Extract numbers and convert them
-        #total = sum(numbers)
-
-        # Return the total sum
+        # Return extracted text
         return {
             'statusCode': 200,
-            'body': json.dumps({
-                'total': image_data
-            }),
-            'headers': {
-                'Content-Type': 'application/json'
+            'body': {
+                'extracted_text': extracted_text
             }
         }
 
     except Exception as e:
-        print(f"Error: {str(e)}")
         return {
             'statusCode': 500,
-            'body': json.dumps({'message': 'Error processing image', 'error': str(e)}),
-            'headers': {
-                'Content-Type': 'application/json'
+            'body': {
+                'error': str(e)
             }
         }
-
