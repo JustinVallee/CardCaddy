@@ -36,7 +36,8 @@
     
           <!-- File input to select an image -->
           <input type="file" id="imageInput" accept="image/*">
-          <button onclick="uploadImage()">Scan and Get Total</button>
+
+          <button onclick="main()">Scan and Get Total</button>
       
           <h2>Total: <span id="total">Waiting for image...</span></h2>
           
@@ -44,48 +45,75 @@
       </div>
 
       <script>
-        // Function to upload the image to Lambda
-        async function uploadImage() {
-            const fileInput = document.getElementById('imageInput');
-            const file = fileInput.files[0];
 
-            if (file) {
-                // Convert the image to base64
-                const reader = new FileReader();
-                reader.onloadend = async function () {
-                    const base64Image = reader.result.split(',')[1]; // Extract base64 string from Data URL
-                    console.log(base64Image)
-                    // Prepare the request body
-                    const requestBody = {
-                        image: "testting"
-                        /*image: base64Image*/
-                    };
+        function main(){
+            // Get the file input element by its id
+            const fileInput = document.getElementById("imageInput");
 
-                    // Call the API Gateway endpoint to invoke the Lambda function
-                    const apiEndpoint = "https://vokrm8ygac.execute-api.us-east-2.amazonaws.com/test"; // Replace with your API endpoint
-                    try {
-                        const response = await fetch(apiEndpoint, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify(requestBody)
-                        });
-
-                        const data = await response.json();
-                        const total = data.total;
-
-                        // Update the result in the HTML
-                        document.getElementById('total').innerHTML = total;
-                    } catch (error) {
-                        console.error('Error:', error);
-                    }
-                };
-                reader.readAsDataURL(file); // Convert file to base64
+            if(fileInput.files.length > 0) {
+                const filename = fileInput.files[0].name;
+                const bucket = "jv-image-processing-bucket";
+                
+                // Call functions to upload the image and process it via Lambda
+                uploadImage(bucket, filename);
+                getLambdaRekog(bucket, filename);
             } else {
-                alert("Please select an image file.");
+                alert("Please select an image.");
             }
         }
+
+        // Function to upload the image to S3
+        function uploadImage(bucket, filename) {
+            const fileInput = document.getElementById("imageInput");
+            const file = fileInput.files[0];
+
+            if (!file) {
+                console.error("No file selected");
+                return;
+            }
+
+            fetch(`https://tmluaj55ij.execute-api.us-east-2.amazonaws.com/dev/${bucket}/${filename}`, {
+                method: 'PUT',
+                headers: {
+                    "Content-Type": file.type // Automatically set the correct MIME type
+                },
+                body: file // Pass the file object directly as the body
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Upload failed. Status: ${response.status}`);
+                }
+                console.log("Image uploaded successfully");
+            })
+            .catch(error => {
+                console.error("Error uploading image:", error);
+            });
+        }
+
+
+        // Function to get Lambda Rekognition result for the image
+        function getLambdaRekog(bucket, filename) {
+        console.log("Bucket:", bucket);
+        console.log("Filename:", filename);
+
+        // Send the request to the API
+        fetch(`https://j84muscmw3.execute-api.us-east-2.amazonaws.com/dev/${bucket}/${filename}`)
+            .then(response => response.json()) // Parse the JSON response
+            .then(data => {
+                console.log("Rekognition result:", data);
+
+                // Directly access the 'textDetected' from the response
+                const total = data.textDetected || "No text detected"; // Fallback to "No text detected" if it's empty
+
+                // Update the DOM element with the result
+                document.getElementById("total").innerText = `Text Detected: ${total}`;
+            })
+            .catch(error => {
+                console.error("Error getting Rekognition result:", error);
+                document.getElementById("total").innerText = "Error fetching total";
+            });
+        }
+    
     </script>
 </body>
 </html>

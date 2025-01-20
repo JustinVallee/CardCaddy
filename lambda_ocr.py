@@ -1,39 +1,71 @@
-import pytesseract
+import json
 import boto3
-from PIL import Image
-from io import BytesIO
 
-# Initialize S3 client
-s3_client = boto3.client('s3')
+def detect_text(photo, bucket):
+    session = boto3.Session()
+    client = session.client('rekognition')
 
+    response = client.detect_text(Image={'S3Object': {'Bucket': bucket, 'Name': photo}})
+    textDetections = response['TextDetections']
+    print('Detected text\n----------')
+    for text in textDetections:
+        print('Detected text:' + text['DetectedText'])
+        print('Confidence: ' + "{:.2f}".format(text['Confidence']) + "%")
+        print('Id: {}'.format(text['Id']))
+        if 'ParentId' in text:
+            print('Parent Id: {}'.format(text['ParentId']))
+        print('Type:' + text['Type'])
+        print()
+    return len(textDetections)
+    
 def lambda_handler(event, context):
     try:
-        # Get bucket name and file name from the event
-        bucket_name = event['bucket_name']
-        image_key = event['file_name']
-        
-        # Fetch image from S3
-        response = s3_client.get_object(Bucket=bucket_name, Key=image_key)
-        image_content = response['Body'].read()
+        # Extract path parameters
+        try:
+            bucket = event['pathParameters']['bucket']
+            filename = event['pathParameters']['filename']
+        except KeyError as e:
+            return {
+                'statusCode': 400,
+                'body': f"Error extracting path parameters: {str(e)}",
+                'headers': {
+                    'Access-Control-Allow-Origin': '*',  # Allow any origin
+                    'Access-Control-Allow-Methods': 'GET, POST',  # Allow GET and POST methods
+                    'Access-Control-Allow-Headers': 'Content-Type',  # Allow specific headers
+                }
+            }
 
-        # Load image using PIL
-        image = Image.open(BytesIO(image_content))
+        # Validate extracted parameters
+        if not bucket or not filename:
+            raise ValueError("Missing 'bucket' or 'filename' in the path parameters.")
 
-        # Extract text using pytesseract
-        extracted_text = pytesseract.image_to_string(image)
+        # Process the text detection (example placeholder function)
+        text_count = detect_text(filename, bucket)
+        print("Text detected: " + str(text_count))
 
-        # Return extracted text
+        # Return success with CORS headers
         return {
             'statusCode': 200,
-            'body': {
-                'extracted_text': extracted_text
+            'body': json.dumps({
+                'textDetected': text_count,
+                'bucket': bucket,
+                'filename': filename
+            }),
+            'headers': {
+                'Access-Control-Allow-Origin': '*',  # Allow any origin
+                'Access-Control-Allow-Methods': 'GET, POST',  # Allow GET and POST methods
+                'Access-Control-Allow-Headers': 'Content-Type',  # Allow specific headers
             }
         }
 
     except Exception as e:
+        print(f"Error: {str(e)}")
         return {
             'statusCode': 500,
-            'body': {
-                'error': str(e)
+            'body': json.dumps({"error": str(e)}),
+            'headers': {
+                'Access-Control-Allow-Origin': '*',  # Allow any origin
+                'Access-Control-Allow-Methods': 'GET, POST',  # Allow GET and POST methods
+                'Access-Control-Allow-Headers': 'Content-Type',  # Allow specific headers
             }
         }
