@@ -1,0 +1,104 @@
+import boto3
+import uuid
+from datetime import datetime
+from decimal import Decimal
+
+# Initialize DynamoDB resource
+dynamodb = boto3.resource('dynamodb')
+
+# Table names
+ROUND_TABLE_NAME = "cardcaddy_round"
+PLAYER_TABLE_NAME = "cardcaddy_player"
+
+def lambda_handler(event, context):
+    try:
+        # Connect to DynamoDB tables
+        round_table = dynamodb.Table(ROUND_TABLE_NAME)
+        player_table = dynamodb.Table(PLAYER_TABLE_NAME)
+        
+        # Extract round data from the event
+        round_data = event.get("round_data", {})
+        
+        # Validate round_data
+        if not round_data:
+            return {
+                "statusCode": 400,
+                "body": "round_data is required in the event."
+            }
+        
+        # Add auto-generated fields for round_data
+        round_data["round_id"] = str(uuid.uuid4())  # Auto-generated unique ID
+        round_data["timestamp"] = get_date()  # Auto-generated timestamp
+        print("Round id here", round_data["round_id"])
+        print("Time stamp here", round_data["timestamp"])
+
+        # Convert all numerical values in round_data to Decimal
+        round_data = convert_to_decimal(round_data)
+        
+        # Extract players from round_data
+        players = round_data.get("Players", [])
+        if not players:
+            return {
+                "statusCode": 400,
+                "body": "round_data must contain at least one player in the Players field."
+            }
+        
+        # Insert each player into the Player table
+        for player in players:
+            # Ensure a player_id exists
+            player_id = player.get("player_id")
+            if not player_id:
+                player_id = str(uuid.uuid4().int % 100000)  # Generate a random ID if not provided
+            print("Player id here",player_id)
+            
+            player_item = {
+                "player_id": player_id,  # Primary key
+                "cognito_id": 1,  # Auto-generated UUID for Cognito ID
+                "name": player["player_name"],  # Player's name
+                "average_score": 79,
+                "handicap": 5, 
+                "round_id": [round_data["round_id"]],
+                "average_pars": convert_to_decimal(player.get("par_averages_round", {"3": 0, "4": 0, "5": 0}))
+
+            }
+            
+            # Insert the player into the Player table
+            player_table.put_item(Item=player_item)
+
+        # Insert the round into the Round table
+        round_table.put_item(Item=round_data)
+        
+        return {
+            "statusCode": 200,
+            "body": {
+                "message": "Round and players successfully populated!",
+                "round_id": round_data["round_id"]
+            }
+        }
+    
+    except Exception as e:
+        print(f"Error: {e}")
+        return {
+            "statusCode": 500,
+            "body": f"An error occurred: {e}"
+        }
+
+
+def get_date():
+    timestamp = int(datetime.now().timestamp())  # Get the timestamp as an integer
+    date_time = datetime.fromtimestamp(timestamp)  # Convert the timestamp to a datetime object
+    return date_time.strftime('%Y-%m-%d %H:%M:%S')  # Format the datetime as a string
+
+
+def convert_to_decimal(data):
+    """
+    Recursively converts all float values in a nested dictionary or list to Decimal.
+    """
+    if isinstance(data, dict):
+        return {k: convert_to_decimal(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [convert_to_decimal(i) for i in data]
+    elif isinstance(data, float):  # Convert float to Decimal
+        return Decimal(str(data))
+    else:
+        return data
