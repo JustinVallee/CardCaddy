@@ -1,0 +1,10 @@
+// Api Lambda Rekog - Query params
+players=player_001,player_002,Joe&condition=Sunny&timestamp=2025-01-26
+
+maybe try to combine both existing and non player in one player item 
+#rounds_played = list_append(if_not_exists(#rounds_played, :empty_list), :new_round)
+
+Functon to get the average
+def get_player_average(player_id):
+    #Method1 by query return player_table.query(KeyConditionExpression=Key('player_id').eq(player_id))['Items'][0]['average_score']
+    #Method2 by primary key return player_table.get_item(Key={'player_id': player_id})['Item']['average_score']
