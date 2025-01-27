@@ -25,8 +25,8 @@ def lambda_handler(event, context):
         
         # Add round_id, timestamp and condition to round_data obj
         round_data["round_id"] = generate_id(ROUND_TABLE_NAME, "round")  # Auto-generated round_id
-        round_data["timestamp"] = timestamp if timestamp is not None else get_date()  # Auto-generated timestamp
-        round_data["condtion"] = condition
+        round_data["timestamp"] = timestamp if timestamp not in [None, ""] else get_date() # Auto-generated timestamp
+        round_data["condition"] = condition if condition not in [None, ""] else "Unknown"
 
         # Convert all numerical values in round_data to Decimal, dynamo only takes decimals
         round_data = convert_to_decimal(round_data)
@@ -37,7 +37,12 @@ def lambda_handler(event, context):
             return {
                 "statusCode": 400,
                 "players":players,
-                "body": "round_data must contain at least one player in the Players field."
+                "body": "round_data must contain at least one player in the Players field.",
+                'headers': { # CORS headers
+                'Access-Control-Allow-Origin': '*',  # Allow any origin
+                'Access-Control-Allow-Methods': 'GET, POST',  # Allow GET and POST methods
+                'Access-Control-Allow-Headers': 'Content-Type',  # Allow specific headers
+                }
             }
         
         # Update/insert the players into the players table, also updates round_data to add the names
@@ -51,6 +56,11 @@ def lambda_handler(event, context):
             "body": {
                 "message": "Round and players successfully populated!",
                 "round_data": round_data
+            },
+            'headers': { # CORS headers
+            'Access-Control-Allow-Origin': '*',  # Allow any origin
+            'Access-Control-Allow-Methods': 'GET, POST',  # Allow GET and POST methods
+            'Access-Control-Allow-Headers': 'Content-Type',  # Allow specific headers
             }
         }
     
@@ -58,7 +68,12 @@ def lambda_handler(event, context):
         print(f"Error: {e}")
         return {
             "statusCode": 500,
-            "body": f"An error occurred: {e}"
+            "body": f"An error occurred: {e}",
+            'headers': { # CORS headers
+                'Access-Control-Allow-Origin': '*',  # Allow any origin
+                'Access-Control-Allow-Methods': 'GET, POST',  # Allow GET and POST methods
+                'Access-Control-Allow-Headers': 'Content-Type',  # Allow specific headers
+            }
         }
 
 def update_players_data(players, round_data):
@@ -69,7 +84,6 @@ def update_players_data(players, round_data):
         # Get the player_id
         player_id = player.get("player_id") if existing_player else generate_id(PLAYER_TABLE_NAME, "player")
         name = player.get("player_id") if not existing_player else get_player_name(player_id)
-
         
         if not existing_player: round_data["players"][index]["player_id"] = player_id
 
@@ -119,8 +133,6 @@ def update_players_data(players, round_data):
             player_table.put_item(Item=player_item)
 
     return round_data
-    
-
 
 def get_player_name(player_id):
     return player_table.get_item(Key={'player_id': player_id})['Item']['name']
@@ -161,7 +173,6 @@ def get_date():
     current_time = datetime.now() # Get the current time
     eastern_time = current_time - timedelta(hours=5) # Subtract 5 hours to adjust for Eastern Standard Time (EST)
     return eastern_time.strftime('%Y-%m-%d %H:%M:%S')  # Format the datetime as a string
-
 
 def convert_to_decimal(data):
 

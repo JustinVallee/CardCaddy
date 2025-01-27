@@ -30,26 +30,39 @@
     
                         <h2 class="my-4">Upload an Image to Get Total</h2>
     
-                        <!-- File input to select an image -->
-                        <div class="container">
-                            <div class="row justify-content-center">
-                                <div class="col-md-6 col-sm-8 col-10">
-                                    <input type="file" id="imageInput" class="form-control" accept="image/*">
-                                </div>
-                            </div>
+                       <!-- Form to handle validation -->
+            <form onsubmit="submitForm(event)">
+                <!-- File input to select an image -->
+                <div class="container">
+                    <div class="row justify-content-center">
+                        <div class="col-md-6 col-sm-8 col-10">
+                            <input type="file" id="imageInput" class="form-control" accept="image/*" required>
                         </div>
+                    </div>
+                </div>
+
+                <div class="container mt-4">
+                    <div class="row justify-content-center">
+                        <div class="col-md-6 col-sm-8 col-10">
+                            <input type="text" id="playersInput" class="form-control mb-3" placeholder="Enter player names (comma-separated)" required>
+                            <input type="text" id="conditionInput" class="form-control mb-3" placeholder="Enter game conditions (e.g., sunny, windy)">
+                            <input type="date" id="dateSelector" class="form-control">
+                        </div>
+                    </div>
+                </div>
+
+                <hr>
+
+                <!-- AI Scan Button -->
+                <button type="submit" class="btn btn-primary my-4">
+                    <i class="fas fa-brain"></i> Scan with AI and Get Total
+                </button>
+            </form>
+
     
-                        <hr>
-    
-                        <!-- AI Scan Button -->
-                        <button onclick="main()" class="btn btn-primary my-4">
-                            <i class="fas fa-brain"></i> Scan with AI and Get Total
-                        </button>
-    
-                        <h2>
-                            <span id="loading-spinner" class="spinner"></span>
-                            <span id="total"></span>
-                        </h2>
+                        
+                        <p><span id="loading-spinner" class="spinner"></span></p>
+                        <div id="total"></div>
     
                         <!-- Overlay and message -->
                         <div class="overlay" id="overlay">
@@ -63,5 +76,11 @@
         </div>
     </div>
 </body>
+<script>
+    function submitForm(event) {
+        event.preventDefault(); // Prevent the form from submitting normally (refreshes the page)
+        main(); // Call the main function instead
+    }
+</script>
 <script src="scripts.js"></script>
 </html>
