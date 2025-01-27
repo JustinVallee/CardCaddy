@@ -1,7 +1,9 @@
 import boto3
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
+import re
+from boto3.dynamodb.conditions import Key
 
 # Initialize DynamoDB resource
 dynamodb = boto3.resource('dynamodb')
@@ -9,70 +11,46 @@ dynamodb = boto3.resource('dynamodb')
 # Table names
 ROUND_TABLE_NAME = "cardcaddy_round"
 PLAYER_TABLE_NAME = "cardcaddy_player"
+# Connect to DynamoDB tables
+round_table = dynamodb.Table(ROUND_TABLE_NAME)
+player_table = dynamodb.Table(PLAYER_TABLE_NAME)
 
 def lambda_handler(event, context):
     try:
-        # Connect to DynamoDB tables
-        round_table = dynamodb.Table(ROUND_TABLE_NAME)
-        player_table = dynamodb.Table(PLAYER_TABLE_NAME)
         
         # Extract round data from the event
-        round_data = event.get("round_data", {})
+        round_data = event["round_scores_obj"]
+        timestamp = event["timestamp"]
+        condition = event["condition"]
         
-        # Validate round_data
-        if not round_data:
-            return {
-                "statusCode": 400,
-                "body": "round_data is required in the event."
-            }
-        
-        # Add auto-generated fields for round_data
-        round_data["round_id"] = str(uuid.uuid4())  # Auto-generated unique ID
-        round_data["timestamp"] = get_date()  # Auto-generated timestamp
-        print("Round id here", round_data["round_id"])
-        print("Time stamp here", round_data["timestamp"])
+        # Add round_id, timestamp and condition to round_data obj
+        round_data["round_id"] = generate_id(ROUND_TABLE_NAME, "round")  # Auto-generated round_id
+        round_data["timestamp"] = timestamp if timestamp is not None else get_date()  # Auto-generated timestamp
+        round_data["condtion"] = condition
 
-        # Convert all numerical values in round_data to Decimal
+        # Convert all numerical values in round_data to Decimal, dynamo only takes decimals
         round_data = convert_to_decimal(round_data)
         
         # Extract players from round_data
-        players = round_data.get("Players", [])
+        players = round_data.get("players", [])
         if not players:
             return {
                 "statusCode": 400,
+                "players":players,
                 "body": "round_data must contain at least one player in the Players field."
             }
         
-        # Insert each player into the Player table
-        for player in players:
-            # Ensure a player_id exists
-            player_id = player.get("player_id")
-            if not player_id:
-                player_id = str(uuid.uuid4().int % 100000)  # Generate a random ID if not provided
-            print("Player id here",player_id)
-            
-            player_item = {
-                "player_id": player_id,  # Primary key
-                "cognito_id": 1,  # Auto-generated UUID for Cognito ID
-                "name": player["player_name"],  # Player's name
-                "average_score": 79,
-                "handicap": 5, 
-                "round_id": [round_data["round_id"]],
-                "average_pars": convert_to_decimal(player.get("par_averages_round", {"3": 0, "4": 0, "5": 0}))
+        # Update/insert the players into the players table, also updates round_data to add the names
+        round_data = update_players_data(players, round_data)
 
-            }
-            
-            # Insert the player into the Player table
-            player_table.put_item(Item=player_item)
-
-        # Insert the round into the Round table
+        # Insert the round into the round table
         round_table.put_item(Item=round_data)
         
         return {
             "statusCode": 200,
             "body": {
                 "message": "Round and players successfully populated!",
-                "round_id": round_data["round_id"]
+                "round_data": round_data
             }
         }
     
@@ -83,14 +61,110 @@ def lambda_handler(event, context):
             "body": f"An error occurred: {e}"
         }
 
+def update_players_data(players, round_data):
+# Insert each player into the Player table
+    for index, player in enumerate(players):
+        existing_player = True if player.get("player_id").startswith("player_") else False
+        
+        # Get the player_id
+        player_id = player.get("player_id") if existing_player else generate_id(PLAYER_TABLE_NAME, "player")
+        name = player.get("player_id") if not existing_player else get_player_name(player_id)
+
+        
+        if not existing_player: round_data["players"][index]["player_id"] = player_id
+
+        round_data["players"][index]["name"] = name
+        
+        # UPDATE db
+        if existing_player:
+            player_item = {
+                "player_id": player_id,  # Primary key
+                "total_score": player["total_score"],
+                "handicap": player["handicap"], 
+                "par_avgs": convert_to_decimal(player["par_avgs"])
+            }
+            player_table.update_item(
+                    Key={"player_id": player_item["player_id"]},
+                    UpdateExpression="""
+                        set #average_score = :average_score,
+                            #average_pars = :average_pars,
+                            #handicap = :handicap,
+                            #rounds_played = list_append(#rounds_played, :new_round)
+                    """,
+                    ExpressionAttributeNames={
+                        "#average_score": "average_score",
+                        "#average_pars": "average_pars",
+                        "#handicap": "handicap",
+                        "#rounds_played": "rounds_played",
+                    },
+                    ExpressionAttributeValues={
+                        ":average_score": player_item["total_score"],  # New function to calculate needed
+                        ":average_pars": player_item["par_avgs"],  # New function to calculate needed
+                        ":handicap": player_item["handicap"],  # New function to calculate needed
+                        ":new_round": [round_data["round_id"]],  # Current round being passed
+                    },
+                )
+        else:
+            player_item = {
+                "player_id": player_id,  # Primary key
+                "cognito_id": str(uuid.uuid4()),  # Auto-generated UUID for Cognito ID
+                "name": name,  # Player's name
+                "average_score": player["total_score"],
+                "average_pars":  convert_to_decimal(player["par_avgs"]),
+                "handicap": player["handicap"], 
+                "rounds_played": [round_data["round_id"]]
+
+            }
+            # Insert the player into the Player table
+            player_table.put_item(Item=player_item)
+
+    return round_data
+    
+
+
+def get_player_name(player_id):
+    return player_table.get_item(Key={'player_id': player_id})['Item']['name']
+
+def generate_id(table_name, prefix):
+    # Add a check for whether the table is 'round' to use a unique ID for each round
+    if table_name == ROUND_TABLE_NAME:
+        partition_key = "round_id"
+        prefix = "round_"  # Keep the prefix for round IDs
+    elif table_name == PLAYER_TABLE_NAME:
+        partition_key = "player_id"
+        prefix = "player_"
+    else:
+        raise ValueError(f"Unknown table name: {table_name}")
+
+    # Scan the table for all items with the given partition key
+    response = dynamodb.Table(table_name).scan(
+        FilterExpression=Key(partition_key).begins_with(prefix),  # Ensure you're filtering by prefix
+        ProjectionExpression=partition_key
+    )
+
+    # Extract all existing IDs and determine the next available round number
+    if 'Items' not in response or not response['Items']:
+        return f"{prefix}001"
+
+    ids = [item[partition_key] for item in response.get("Items", [])]
+
+    numeric_parts = []
+    for item_id in ids:
+        match = re.match(rf"{prefix}(\d+)", item_id)  # Extract the number from the ID
+        if match:
+            numeric_parts.append(int(match.group(1)))
+    
+    next_number = max(numeric_parts, default=0) + 1  # Increment the largest number
+    return f"{prefix}{next_number:03}"
 
 def get_date():
-    timestamp = int(datetime.now().timestamp())  # Get the timestamp as an integer
-    date_time = datetime.fromtimestamp(timestamp)  # Convert the timestamp to a datetime object
-    return date_time.strftime('%Y-%m-%d %H:%M:%S')  # Format the datetime as a string
+    current_time = datetime.now() # Get the current time
+    eastern_time = current_time - timedelta(hours=5) # Subtract 5 hours to adjust for Eastern Standard Time (EST)
+    return eastern_time.strftime('%Y-%m-%d %H:%M:%S')  # Format the datetime as a string
 
 
 def convert_to_decimal(data):
+
     """
     Recursively converts all float values in a nested dictionary or list to Decimal.
     """
