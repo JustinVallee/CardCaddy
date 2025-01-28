@@ -2,12 +2,20 @@ html, body {
     height: 100%;
     margin: 0;
     padding: 0;
-    background: linear-gradient(to right, lightblue, lightgreen);
+    /*background: linear-gradient(to right, lightblue, lightgreen);*/
+    background-color: rgb(176, 222, 204);
     background-repeat: no-repeat;
     background-attachment: fixed;
     /* Add padding for safe areas iphone bezels */
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Customize button to stand out */
+button[type="submit"] {
+    margin-top: 1rem;
+    padding: 0.5rem 1rem;
+    font-size: 1.1rem;
 }
 
 /* Spinner CSS */
@@ -27,7 +35,6 @@ html, body {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
   }
-
   
  /* Style for the overlay */
  .overlay {
@@ -66,4 +73,65 @@ html, body {
 
 ::-webkit-scrollbar-track {
     background: #f1f1f1;
+}
+.madatory-asterix{
+    color: red;
+}
+#newPlayerInput{
+    margin-top: 0.15rem !important;
+}
+/* Custom styles for Chosen elements */
+/* Box when not selected */
+.chosen-container-multi .chosen-choices {
+    background-image: none !important;
+    background-color: white !important;
+    border: 1px solid #ced4da !important; /* Border matches Bootstrap input */
+    border-radius: 0.375rem !important; /* Rounded corners like Bootstrap input */
+    padding: 0.375rem 0.75rem !important;
+    width: 100% !important;
+}
+
+/* Placeholder text */
+.chosen-search-input {
+    font-size: 1rem !important; /* Matches Bootstrap font size */
+    color: #6c757d !important; /* Matches placeholder color in Bootstrap */
+}
+
+/* Text when selected */
+.chosen-container-multi .search-choice {
+    color: #495057 !important; /* Bootstrap text color */
+    font-size: 0.85rem !important;
+    background-color: #f8f9fa !important; /* Light background for tags */
+    border: 1px solid #ced4da !important; /* Border matches input */
+    border-radius: 0.2rem !important; /* Slightly rounded like Bootstrap badges */
+}
+
+/* Options provided when open */
+.chosen-container .chosen-results {
+    background-color: #ffffff !important; /* White dropdown background */
+    font-size: 1rem !important; /* Matches Bootstrap font size */
+    border: 1px solid #ced4da !important; /* Border matches input fields */
+    border-radius: 0.25rem !important;
+    max-height: 200px; /* Scrollable if too many options */
+    overflow-y: auto;
+}
+
+/* Hover when an option is open */
+.chosen-container .chosen-results .highlighted {
+    background: none !important;
+    background-color: #0d6efd !important; /* Bootstrap primary button hover color */
+    color: #ffffff !important; /* White text for contrast */
+    box-shadow: none !important; /* Remove any box shadow */
+}
+
+
+/* Option item text color */
+.chosen-container .chosen-results li {
+    color: #495057 !important; /* Bootstrap text color */
+}
+
+/* Focused input border for multi-select */
+.chosen-container-active .chosen-choices {
+    border-color: #80bdff !important; /* Matches Bootstrap's focus border */
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25) !important; /* Matches focus glow */
 }
