@@ -1,6 +1,48 @@
+// Function to load players from the API
+function loadPlayers() {
+    fetch('https://vopx2v8s2d.execute-api.us-east-2.amazonaws.com/dev/cardcaddy_player?all_players=True')
+        .then(response => response.json())
+        .then(data => {
+            const playerSelect = document.getElementById('playerInput');
+            for (const playerId in data) {
+                const option = document.createElement('option');
+                option.value = playerId;
+                option.text = data[playerId];
+                playerSelect.appendChild(option);
+            }
+
+            // Initialize the Chosen plugin after options are populated
+            $(".chosen-select").chosen();
+            
+        })
+        .catch(error => {
+            console.error('Error fetching player data:', error);
+        });
+}
+
+// Load players on page load
+window.onload = loadPlayers;
+
+function submitForm(event) {
+    event.preventDefault(); // Prevent the form from submitting normally (refreshes the page)
+
+    // Get the values of playerInput and newPlayerInput
+    const playerInput = document.getElementById('playerInput').value.trim();
+    const newPlayerInput = document.getElementById('newPlayerInput').value.trim();
+
+    // Validate that at least one of the fields is filled
+    if (playerInput === "" && newPlayerInput === "") {
+        alert("Please provide at least one player (either select from the list or enter a new player).");
+        return; // Stop the form from submitting
+    }
+   
+    main(); // If validation passes, call the main function
+}
+
 function main(){
     // Get values from the input fields
-    const players = document.getElementById('playersInput').value;
+    
+    const players = addNewPlayersToSelected();
     const condition = document.getElementById('conditionInput').value;
     const timestamp = document.getElementById('dateSelector').value;
 
@@ -19,6 +61,35 @@ function main(){
         alert("Please select and upload an image.");
         return;
     }
+}
+// Function to get the selected players in the option
+function getSelectedPlayers() {
+    const playerSelect = document.getElementById('playerInput');
+    const selectedOptions = Array.from(playerSelect.selectedOptions);
+    const selectedPlayers = selectedOptions.map(option => option.value).join(',');
+    return selectedPlayers
+}
+
+function addNewPlayersToSelected() {
+    let selectPlayers = getSelectedPlayers(); // Get selected players (CSV string)
+    let newPlayers = document.getElementById('newPlayerInput').value; // Get new player input
+
+    newPlayers = newPlayers
+        .replace(/\s*,\s*/g, ',') // Remove spaces around commas
+        .replace(/\s+/g, ',')     // Replace spaces with commas
+        .trim();                  // Trim leading/trailing spaces
+
+    let newPlayersArray = newPlayers.split(',').filter(player => player !== ''); // Split and remove empty values
+    let allPlayers;
+    if (selectPlayers !== null && selectPlayers !== "") {
+        // If selectPlayers has a value, split it into an array and concatenate newPlayersArray
+        allPlayers = selectPlayers.split(',').concat(newPlayersArray).join(',');
+    } else {
+        // If selectPlayers is null or empty, just use newPlayersArray
+        allPlayers = newPlayersArray.join(',');  // Convert array to CSV string
+    }
+
+    return allPlayers; // Return the final CSV string
 }
 
 // Function to upload the image to S3
@@ -41,7 +112,6 @@ function uploadImage(file){
         console.error("Error uploading image:", error);
     });
 }
-
 
 // Function to get Lambda Rekognition result for the image
 function getLambdaRekog(file,players,condition,timestamp){
@@ -86,11 +156,7 @@ function getLambdaRekog(file,players,condition,timestamp){
                 <p><strong>Condition:</strong> ${data.response_payload.body.round_data.condition}</p>
                 <p><strong>Timestamp:</strong> ${data.response_payload.body.round_data.timestamp}</p>
             `;
-            
-            
-        
-        
-            
+
         })
         .catch(error => {
             console.error("Error getting lambda rekog:", error);
@@ -101,15 +167,9 @@ function getLambdaRekog(file,players,condition,timestamp){
 
 }
 
-
 // Function to display the success message
 function showSuccessMessage() {
     // Show the overlay and message
     const overlay = document.getElementById('overlay');
     overlay.style.display = 'flex';  // Show overlay
-
-    // Optionally hide the success message after 3 seconds
-    setTimeout(() => {
-        overlay.style.display = 'none'; // Hide overlay
-    }, 1500);
 }
