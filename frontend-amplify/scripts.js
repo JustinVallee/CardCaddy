@@ -172,4 +172,9 @@ function showSuccessMessage() {
     // Show the overlay and message
     const overlay = document.getElementById('overlay');
     overlay.style.display = 'flex';  // Show overlay
+
+    // Hide the success message after 0.8 seconds
+    setTimeout(() => {
+        overlay.style.display = 'none'; // Hide overlay
+    }, 800);
 }

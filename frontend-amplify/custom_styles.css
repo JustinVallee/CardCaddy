@@ -2,8 +2,8 @@ html, body {
     height: 100%;
     margin: 0;
     padding: 0;
-    /*background: linear-gradient(to right, lightblue, lightgreen);*/
-    background-color: rgb(176, 222, 204);
+    background: linear-gradient(to right, lightblue, lightgreen);
+    /*background-color: rgb(176, 222, 204);*/
     background-repeat: no-repeat;
     background-attachment: fixed;
     /* Add padding for safe areas iphone bezels */
