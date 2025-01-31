@@ -54,7 +54,7 @@ function main(){
     const file = fileInput.files[0];
     document.getElementById("total").innerText = ``;
     if(file) {
-        //uploadImage(file)
+        uploadImage(file)
         getLambdaRekog(file,players,condition,timestamp)
     } else {
         console.error("No file selected");
@@ -133,7 +133,7 @@ function getLambdaRekog(file,players,condition,timestamp){
             spinner.style.display = 'none';
             showSuccessMessage()
             
-            let playersHTML = data.response_payload.body.round_data.players.map(player => {
+            /*let playersHTML = data.response_payload.body.round_data.players.map(player => {
                 return `
                     <p><strong>Player ID:</strong> ${player.player_id}</p>
                     <p><strong>Name:</strong> ${player.name}</p>
@@ -155,12 +155,24 @@ function getLambdaRekog(file,players,condition,timestamp){
                 <p><strong>Round ID:</strong> ${data.response_payload.body.round_data.round_id}</p>
                 <p><strong>Condition:</strong> ${data.response_payload.body.round_data.condition}</p>
                 <p><strong>Timestamp:</strong> ${data.response_payload.body.round_data.timestamp}</p>
-            `;
+            `;*/
+            let htmlContent = "<h4>Response Summary</h4>";
+            data.forEach(item => {
+                htmlContent += `<p>
+                    <strong>Detected Text:</strong> ${item.DetectedText} <br>
+                    <strong>Confidence:</strong> ${item.Confidence.toFixed(2)}% <br>
+                    <strong>Id:</strong> ${item.Id} <br>
+                    ${item.ParentId ? `<strong>Parent Id:</strong> ${item.ParentId} <br>` : ""}
+                </p>`;
+            });
+            document.getElementById("total").innerHTML = htmlContent;
+            
+        
 
         })
         .catch(error => {
             console.error("Error getting lambda rekog:", error);
-            document.getElementById("total").innerText = "Error from response";
+            document.getElementById("total").innerText = "Error from response lambda rekog";
             // Hide the spinner in case of error
             spinner.style.display = 'none';
         });

@@ -16,7 +16,7 @@ def detect_text(photo, bucket):
             print('Parent Id: {}'.format(text['ParentId']))
         print('Type:' + text['Type'])
         print()
-    return len(textDetections)
+    return textDetections
 
 def Test_detect_text(players_list):
     # Initialize the round scores object with basic information
@@ -55,7 +55,6 @@ def call_other_lambda(payload):
     response_payload = json.loads(response['Payload'].read().decode('utf-8'))
     return response_payload
     
-
 def lambda_handler(event, context):
     try:
         # Extract path parameters
@@ -81,16 +80,15 @@ def lambda_handler(event, context):
         if not bucket or not filename or not players_list:
             raise ValueError("Missing 'bucket' or 'filename' in the path parameters. And must have at leat one player")
 
-        # Call the text detection funciton
-        #text_count = detect_text(filename, bucket)
-        round_scores_obj = Test_detect_text(players_list)
+        # !!!!!! Call the text detection funciton !!!!!!
+        text_detection = detect_text(filename, bucket)
+        # = Test_detect_text(players_list)
 
-
-        response_payload = call_other_lambda({
+        '''response_payload = call_other_lambda({
             'timestamp': timestamp,
             'condition': condition,
             'round_scores_obj': round_scores_obj
-        })
+        })'''
 
         # Return success with CORS headers
         return {
@@ -98,7 +96,8 @@ def lambda_handler(event, context):
             'body': json.dumps({
                 'bucket': bucket,
                 'filename': filename,
-                'response_payload': response_payload
+                #'response_payload': response_payload
+                'Entire obj text_detection': text_detection
             }),
             'headers': { # CORS headers
                 'Access-Control-Allow-Origin': '*',  # Allow any origin
@@ -108,7 +107,6 @@ def lambda_handler(event, context):
         }
 
     except Exception as e:
-        print(f"Error: {str(e)}")
         return {
             'statusCode': 500,
             'body': json.dumps({
