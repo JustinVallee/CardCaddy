@@ -1,9 +1,10 @@
 import os
 from PIL import Image, ImageFilter
 import numpy as np
-from skimage import filters
+#from skimage import filters
+from scipy.ndimage import uniform_filter
 
-def preprocess_image(image_path, output_path, block_size=31, offset=7):
+def preprocess_image(image_path, output_path, block_size=31, offset=9):
     """
     Preprocesses an image for OCR:
     1. Converts to grayscale
@@ -34,8 +35,11 @@ def preprocess_image(image_path, output_path, block_size=31, offset=7):
     image_np = np.array(image)
 
     # 3. Apply adaptive thresholding
-    thresh = filters.threshold_local(image_np, block_size=block_size, offset=offset)
-    binary = image_np > thresh
+    #thresh = filters.threshold_local(image_np, block_size=block_size, offset=offset)
+    mean_filter = uniform_filter(image_np, size=block_size)
+    binary = image_np > (mean_filter - offset)  # Direct thresholding comparison
+
+    #binary = image_np > thresh
 
     # Convert back to Pillow image
     processed_image = Image.fromarray((binary * 255).astype(np.uint8))
@@ -49,7 +53,7 @@ def preprocess_image(image_path, output_path, block_size=31, offset=7):
 script_dir = os.path.dirname(os.path.realpath(__file__))
 
 # Build the full path to the image file
-image_name = 'unnamed.jpg'
+image_name = 'bluredbackimage.jpg'
 input_image_path = os.path.join(script_dir, 'images-preprocess-input', image_name)
 output_image_path = os.path.join(script_dir, 'images-preprocess-output', 'processed--'+image_name)
 
