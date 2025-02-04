@@ -1,9 +1,18 @@
-import os
-from PIL import Image, ImageFilter
-import numpy as np
-from skimage import filters
+"""
+Description: This script function is to use in lambda_ocr.py and is a ready version for cloud lambda deployment (accessing the image from the s3 bucket).
 
-def preprocess_image(image_path, output_path, block_size=31, offset=7):
+Lambda configuration: need a minimum of 512mb of RAM or 1Gb is recommended
+
+"""
+
+import json
+import boto3
+import io
+import numpy as np
+from PIL import Image, ImageFilter
+from scipy.ndimage import uniform_filter
+
+def preprocess_image(filename, block_size=31, offset=9):
     """
     Preprocesses an image for OCR:
     1. Converts to grayscale
@@ -21,36 +30,56 @@ def preprocess_image(image_path, output_path, block_size=31, offset=7):
         -Increase block_size (e.g., 51) to smooth out local variations.
         -Increase offset (e.g., 10) to make the threshold stricter.
     """
-    # Open the image using Pillow
-    image = Image.open(image_path)
+    s3 = boto3.resource('s3')  # Initialize S3 resource
+    bucket = s3.Bucket('jv-image-processing-bucket')
+    obj_img = bucket.Object(filename)
+    response = obj_img.get()
+    img_data = response['Body'].read()
+    
+    # Open image from binary data
+    image = Image.open(io.BytesIO(img_data))
 
     # 1. Convert to grayscale
     image = image.convert("L")  # "L" mode is grayscale
-
     # 2. Reduce noise using a median filter
     image = image.filter(ImageFilter.MedianFilter(size=3))
-
-    # Convert Pillow image to NumPy array for scikit-image
+    # Convert Pillow image to NumPy array
     image_np = np.array(image)
-
     # 3. Apply adaptive thresholding
-    thresh = filters.threshold_local(image_np, block_size=block_size, offset=offset)
-    binary = image_np > thresh
-
+    mean_filter = uniform_filter(image_np, size=block_size)
+    binary = image_np > (mean_filter - offset)  # Direct thresholding comparison
     # Convert back to Pillow image
-    processed_image = Image.fromarray((binary * 255).astype(np.uint8))
+    preprocessed_image = Image.fromarray((binary * 255).astype(np.uint8))
 
-    # Save the processed image
-    processed_image.save(output_path)
-    print(f"Processed image saved to {output_path}")
+    return preprocessed_image
 
-# Example usage
-# Get the directory where the script is located
-script_dir = os.path.dirname(os.path.realpath(__file__))
+def save_image_to_s3(image, bucket_name, filename):
+    # Save the preprocessed image to a byte stream
+    byte_stream = io.BytesIO()
+    image.save(byte_stream, format='PNG')  # You can change the format (e.g., 'JPEG', 'PNG')
+    byte_stream.seek(0)
+    # Initialize S3 client
+    s3 = boto3.client('s3')
+    # Upload image to S3
+    s3.put_object(Bucket=bucket_name, Key=filename, Body=byte_stream, ContentType='image/png')
 
-# Build the full path to the image file
-image_name = 'unnamed.jpg'
-input_image_path = os.path.join(script_dir, 'images-preprocess-input', image_name)
-output_image_path = os.path.join(script_dir, 'images-preprocess-output', 'processed--'+image_name)
+def delete_image_from_s3(bucket_name, filename):
+    """Deletes an image from S3 after processing."""
+    s3 = boto3.client('s3')
+    s3.delete_object(Bucket=bucket_name, Key=filename)
 
-preprocess_image(input_image_path, output_image_path)
+def lambda_handler(event, context):
+    bucket_name = 'jv-image-processing-bucket'
+    original_filename = 'IMG_1849.jpg'
+    processed_filename = 'processed-'
+
+    # Process the image
+    preprocessed_img = preprocess_image(original_filename)
+    
+    # Save the processed image to S3
+    save_image_to_s3(preprocessed_img, bucket_name, processed_filename+original_filename)
+
+    # Delete the original image after processing
+    delete_image_from_s3(bucket_name, original_filename)
+
+    return {"statusCode": 200, "body": "Image processed, saved, and original deleted successfully"}
