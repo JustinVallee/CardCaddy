@@ -19,7 +19,6 @@ function loadPlayers() {
             console.error('Error fetching player data:', error);
         });
 }
-
 // Load players on page load
 window.onload = loadPlayers;
 
@@ -41,7 +40,6 @@ function submitForm(event) {
 
 function main(){
     // Get values from the input fields
-    
     const players = addNewPlayersToSelected();
     const condition = document.getElementById('conditionInput').value;
     const timestamp = document.getElementById('dateSelector').value;
@@ -55,7 +53,7 @@ function main(){
     document.getElementById("total").innerText = ``;
     if(file) {
         uploadImage(file)
-        getLambdaRekog(file,players,condition,timestamp)
+        getOcr(file,players,condition,timestamp)
     } else {
         console.error("No file selected");
         alert("Please select and upload an image.");
@@ -113,18 +111,17 @@ function uploadImage(file){
     });
 }
 
-// Function to get Lambda Rekognition result for the image
-function getLambdaRekog(file,players,condition,timestamp){
-
+// Function to get cardCaddy-ocr result for the image
+function getOcr(file,players,condition,timestamp){
     // Get the spinner element and Show the spinner
     const spinner = document.getElementById("loading-spinner");
     spinner.style.display = 'inline-block';
 
     // Send the request to the API REMOVED https for testing
-    fetch(`https://j84muscmw3.execute-api.us-east-2.amazonaws.com/dev/jv-image-processing-bucket/${file.name}?players=${players}&condition=${condition}&timestamp=${timestamp}`)
+    fetch(`https://yoq351n2v9.execute-api.us-east-2.amazonaws.com/dev/jv-image-processing-bucket/${file.name}?players=${players}&condition=${condition}&timestamp=${timestamp}`)
         .then(response => response.json()) // Parse the JSON response
         .then(data => {
-            console.log("Lambda Rekog(ocr) response:", data);
+            console.log("CardCaddy-ocr response:", data);
 
             // Directly access the 'textDetected' from the response
             //const total = data.textDetected || "No text detected"; // Fallback to "No text detected" if it's empty
@@ -156,7 +153,7 @@ function getLambdaRekog(file,players,condition,timestamp){
                 <p><strong>Condition:</strong> ${data.response_payload.body.round_data.condition}</p>
                 <p><strong>Timestamp:</strong> ${data.response_payload.body.round_data.timestamp}</p>
             `;*/
-            let htmlContent = "<h4>Response Summary</h4>";
+            /*let htmlContent = "<h4>Response Summary</h4>";
             data.forEach(item => {
                 htmlContent += `<p>
                     <strong>Detected Text:</strong> ${item.DetectedText} <br>
@@ -164,15 +161,13 @@ function getLambdaRekog(file,players,condition,timestamp){
                     <strong>Id:</strong> ${item.Id} <br>
                     ${item.ParentId ? `<strong>Parent Id:</strong> ${item.ParentId} <br>` : ""}
                 </p>`;
-            });
-            document.getElementById("total").innerHTML = htmlContent;
-            
-        
+            });*/
+            document.getElementById("total").innerHTML = data.result.html_table;
 
         })
         .catch(error => {
-            console.error("Error getting lambda rekog:", error);
-            document.getElementById("total").innerText = "Error from response lambda rekog";
+            console.error("Error getting cardCaddy-ocr:", error);
+            document.getElementById("total").innerText = "Error from response cardCaddy-ocr";
             // Hide the spinner in case of error
             spinner.style.display = 'none';
         });
