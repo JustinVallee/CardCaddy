@@ -53,96 +53,107 @@ def correct_ocr_text(text, confidence, confidence_threshold=98):
     else:
         return text
 
-def build_html_table(tables, response, players_list, confidence_threshold=97.5):
+def sort_response_table(table, block_dict):
+    '''Returns sorted_table like so {
+        1stcolumn[1strow[1stcell,2ndcell,...],2ndrow[1stcell,2ndcell,...],...],
+        2ndcolumn[1strow[1stcell,2ndcell,...],2ndrow[1stcell,2ndcell,...],...],...}
+    '''
+
+    if 'Relationships' in table:  # Ensure the table has relationships
+        cells = []
+        for relationship in table['Relationships']:  
+            if relationship['Type'] == 'CHILD':
+                for cell_id in relationship['Ids']:
+                    cell = block_dict.get(cell_id)
+                    if cell and cell['BlockType'] == 'CELL':  
+                        cells.append(cell)
+
+        rows = {}
+        for cell in cells:  
+            row_index = cell.get('RowIndex', 0)
+            if row_index not in rows:
+                rows[row_index] = []
+            rows[row_index].append(cell)
+
+        # Sort rows
+        sorted_rows = sorted(rows.items(), key=lambda x: x[0])  
+
+        sorted_table = []  # Store all sorted rows properly
+        for row_index, row_cells in sorted_rows:  
+            sorted_cells = sorted(row_cells, key=lambda x: x.get('ColumnIndex', 0))
+            sorted_table.append((row_index, sorted_cells))  # Append tuple (row_index, sorted row)
+
+        return sorted_table
+
+    else:
+        print("No relationships found for this table.")
+        return []
+
+def build_html_table(sorted_table, block_dict, players_names, confidence_threshold=97.5):
     """Builds an HTML table based on relationships and detected tables."""
-    # Define keywords for holes and par rows
     hole_keywords = ['Hole', 'trous', 'Hole number', 'TROU-HOLE']
     par_keywords = ['Par', 'Normale', 'par men', 'par homme', 'Normale / Par']
-    
-    html = "<table border='1'>"
-    for table in tables:
-        if 'Relationships' in table:
-            cells = []
-            for relationship in table['Relationships']:
-                if relationship['Type'] == 'CHILD':
-                    for cell_id in relationship['Ids']:
-                        cell = next((item for item in response["Blocks"] if item['Id'] == cell_id), None)
-                        if cell and cell['BlockType'] == 'CELL':
-                            cells.append(cell)
 
-            rows = {}
-            for cell in cells:
-                row_index = cell.get('RowIndex', 0)
-                if row_index not in rows:
-                    rows[row_index] = []
-                rows[row_index].append(cell)
+    html = """<div class="table-responsive"><table class="table table-bordered table-dark"><tbody>"""
 
-            sorted_rows = sorted(rows.items(), key=lambda x: x[0])
+    for row_index, row_cells in sorted_table:
+        # Check if the row should be kept
+        keep_row = False
+        first_cell_row = row_cells[0] # Considering the first cell of the row is the column header
+        for cell in row_cells[:1]:  # Check the first column considering the first is the column header
+            cell_text = ''
+            if 'Relationships' in cell:
+                for relationship in cell['Relationships']:
+                    if relationship['Type'] == 'CHILD':
+                        for word_id in relationship['Ids']:
+                            word = block_dict.get(word_id)
+                            if word and word['BlockType'] == 'WORD':
+                                cell_text += word['Text'] + ' '
 
-            # First pass: identify which rows to keep
-            rows_to_keep = set()
-            for row_index, row_cells in sorted_rows:
-                sorted_cells = sorted(row_cells, key=lambda x: x.get('ColumnIndex', 0))
-                
-                # Check first few cells of each row for identification
-                for cell in sorted_cells[:2]:  # Check first two cells
-                    cell_text = ''
-                    if 'Relationships' in cell:
-                        for relationship in cell['Relationships']:
-                            if relationship['Type'] == 'CHILD':
-                                for word_id in relationship['Ids']:
-                                    word = next((item for item in response["Blocks"] if item['Id'] == word_id), None)
-                                    if word and word['BlockType'] == 'WORD':
-                                        cell_text += word['Text'] + ' '
-                    
-                    cell_text = cell_text.strip()
-                    
-                    # Keep row if it matches any criteria
-                    if any(keyword.lower() in cell_text.lower() for keyword in hole_keywords):
-                        rows_to_keep.add(row_index)
-                    elif any(keyword.lower() in cell_text.lower() for keyword in par_keywords):
-                        rows_to_keep.add(row_index)
-                    elif any(player.lower() in cell_text.lower() for player in players_list):
-                        rows_to_keep.add(row_index)
+            cell_text = cell_text.strip()
+            print("DEBUG- cell text: ", cell_text) 
+            if any(keyword.lower() in cell_text.lower() for keyword in hole_keywords):
+                keep_row = True
+                break
+            elif any(keyword.lower() in cell_text.lower() for keyword in par_keywords):
+                keep_row = True
+                break
+            elif any(player.lower() in cell_text.lower() for player in players_names):
+                keep_row = True
+                break
 
-            # Second pass: build HTML only for kept rows
-            for row_index, row_cells in sorted_rows:
-                if row_index in rows_to_keep:
-                    html += "<tr>"
-                    sorted_cells = sorted(row_cells, key=lambda x: x.get('ColumnIndex', 0))
-                    
-                    for cell in sorted_cells:
-                        cell_text = ''
-                        low_confidence = False
-                        
-                        if 'Relationships' in cell:
-                            for relationship in cell['Relationships']:
-                                if relationship['Type'] == 'CHILD':
-                                    for word_id in relationship['Ids']:
-                                        word = next((item for item in response["Blocks"] if item['Id'] == word_id), None)
-                                        if word and word['BlockType'] == 'WORD':
-                                            corrected_text = correct_ocr_text(word['Text'], word.get('Confidence', 100))
-                                            cell_text += corrected_text + ' '
-                                            
-                                            if word.get('Confidence', 100) < confidence_threshold:
-                                                low_confidence = True
+        # If the row should be kept, build its HTML
+        if keep_row:
+            html += "<tr>"
+            for cell in row_cells[:10]:  # Keep only the first 10 columns
+                cell_text = ''
+                low_confidence = False
+                if 'Relationships' in cell:
+                    for relationship in cell['Relationships']:
+                        if relationship['Type'] == 'CHILD':
+                            for word_id in relationship['Ids']:
+                                word = block_dict.get(word_id)
+                                if word and word['BlockType'] == 'WORD':
+                                    corrected_text = correct_ocr_text(word['Text'], word.get('Confidence', 100))
+                                    cell_text += corrected_text + ' '
 
-                        # Only apply red color if it's low confidence and length < 3
-                        should_mark_red = (
-                            low_confidence and 
-                            len(cell_text.strip()) < 3
-                        )
+                                    if word.get('Confidence', 100) < confidence_threshold:
+                                        low_confidence = True
 
-                        if should_mark_red:
-                            html += f"<td style='color: red;'>{cell_text.strip()}</td>"
-                        else:
-                            html += f"<td>{cell_text.strip()}</td>"
-                            
-                    html += "</tr>"
-        else:
-            print("No relationships found for this table.")
-            
-    html += "</table>"
+                make_red = low_confidence and len(cell_text.strip()) < 3
+
+                if cell == first_cell_row:
+                    html += f"<th>{cell_text.strip()}</th>"
+                    continue
+                if make_red:
+                    html += f"<td style='color: red;'>{cell_text.strip()}</td>"
+                    continue
+                elif cell_text.strip():  # Only create <td> if text is not empty
+                    html += f"<td>{cell_text.strip()}</td>"
+
+            html += "</tr>"
+
+    html += "</tbody></table></div>"
     return html
 
 def ocr(bucket_name, filename, players_list):
@@ -150,6 +161,8 @@ def ocr(bucket_name, filename, players_list):
     # Initialize AWS clients
     s3 = boto3.client('s3')
     textract = boto3.client('textract', region_name="us-east-2")
+    response_payload_players = call_other_lambda('cardCaddy-fetch-dynamodb', {'table':'cardcaddy_player','playersNamesOrId': players_list})
+    players_names = response_payload_players['body']
 
     # Retrieve image from S3
     try:
@@ -168,18 +181,22 @@ def ocr(bucket_name, filename, players_list):
     except Exception as e:
         print(f"Error analyzing document with Textract: {str(e)}")
         return {"error": "Failed to analyze document with Textract"}
-
-    tables = []
-    # Extract tables
-    for item in response["Blocks"]:
-        if item["BlockType"] == "TABLE":
-            tables.append(item)
     
-    # Build HTML table based on the relationships and table blocks
-    html_table = build_html_table(tables, response, players_list)
+    block_dict = {block['Id']: block for block in response["Blocks"]} # Extract Blocks from response, see https://docs.aws.amazon.com/textract/latest/dg/how-it-works-document-layout.html#hows-it-works-blocks-types.title
+
+    tables = [block for block in block_dict.values() if block["BlockType"] == "TABLE"]
+
+    html_tables = []
+    # Build HTML tables based on the relationships and table blocks
+    for table in tables:
+        sorted_table = sort_response_table(table, block_dict)
+        html_table = build_html_table(sorted_table, block_dict, players_names)
+        html_tables.append(html_table)  # Append each HTML table to the list
+
+    html_tables_str = "".join(html_tables)
 
     return {
-        "html_table": html_table
+        "html_table": html_tables_str
     }
 
 def lambda_handler(event, context):

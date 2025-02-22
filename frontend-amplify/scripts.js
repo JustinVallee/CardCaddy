@@ -1,6 +1,6 @@
 // Function to load players from the API
 function loadPlayers() {
-    fetch('https://vopx2v8s2d.execute-api.us-east-2.amazonaws.com/dev/cardcaddy_player?all_players=True')
+    fetch('https://vopx2v8s2d.execute-api.us-east-2.amazonaws.com/dev/cardcaddy_player?want_all_players=True')
         .then(response => response.json())
         .then(data => {
             const playerSelect = document.getElementById('playerInput');
@@ -60,6 +60,7 @@ function main(){
         return;
     }
 }
+
 // Function to get the selected players in the option
 function getSelectedPlayers() {
     const playerSelect = document.getElementById('playerInput');
