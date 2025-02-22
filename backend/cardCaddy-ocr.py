@@ -2,6 +2,36 @@ import json
 import boto3
 import io
 
+# Fuzzy matching functions to get the closet player names
+def levenshtein_distance(s1, s2):
+    """Calculate the Levenshtein distance between two strings."""
+    if len(s1) < len(s2):
+        return levenshtein_distance(s2, s1)
+
+    if len(s2) == 0:
+        return len(s1)
+
+    previous_row = range(len(s2) + 1)
+    for i, c1 in enumerate(s1):
+        current_row = [i + 1]
+        for j, c2 in enumerate(s2):
+            insertions = previous_row[j + 1] + 1
+            deletions = current_row[j] + 1
+            substitutions = previous_row[j] + (c1 != c2)
+            current_row.append(min(insertions, deletions, substitutions))
+        previous_row = current_row
+
+    return previous_row[-1]
+
+def similarity_score(s1, s2):
+    """Calculate the similarity score between two strings as a percentage."""
+    max_len = max(len(s1), len(s2))
+    if max_len == 0:
+        return 100  # Both strings are empty
+    distance = levenshtein_distance(s1, s2)
+    return (1 - distance / max_len) * 100
+
+
 def save_image_to_s3(image, bucket_name, filename):
     """Saves an image to S3."""
     byte_stream = io.BytesIO()
@@ -54,10 +84,15 @@ def correct_ocr_text(text, confidence, confidence_threshold=98):
         return text
 
 def sort_response_table(table, block_dict):
-    '''Returns sorted_table like so {
-        1stcolumn[1strow[1stcell,2ndcell,...],2ndrow[1stcell,2ndcell,...],...],
-        2ndcolumn[1strow[1stcell,2ndcell,...],2ndrow[1stcell,2ndcell,...],...],...}
-    '''
+    """
+        Returns a sorted table array of tuples. Each tuple is a row sorted by ColumnIndex.
+        eg.
+        [
+            (1, [cell1, cell2, ...]),  # First row with cells sorted by column index
+            (2, [cell3, cell4, ...]),  # Second row, etc.
+            ...
+        ]
+    """
 
     if 'Relationships' in table:  # Ensure the table has relationships
         cells = []
@@ -92,35 +127,57 @@ def sort_response_table(table, block_dict):
 def build_html_table(sorted_table, block_dict, players_names, confidence_threshold=97.5):
     """Builds an HTML table based on relationships and detected tables."""
     hole_keywords = ['Hole', 'trous', 'Hole number', 'TROU-HOLE']
+    found_holes = False
     par_keywords = ['Par', 'Normale', 'par men', 'par homme', 'Normale / Par']
+    found_pars = False
+    # Initialize a set to track found players
+    found_players = set()
+    # Initialize a dictionary to track suggested matches
+    suggested_matches = {}  # Format: {player: (best_match_text, best_similarity_score)}
 
     html = """<div class="table-responsive"><table class="table table-bordered table-dark"><tbody>"""
 
     for row_index, row_cells in sorted_table:
         # Check if the row should be kept
         keep_row = False
+        is_suggested_row = False  # Flag to track if the row is kept due to a suggested match
         first_cell_row = row_cells[0] # Considering the first cell of the row is the column header
-        for cell in row_cells[:1]:  # Check the first column considering the first is the column header
-            cell_text = ''
-            if 'Relationships' in cell:
-                for relationship in cell['Relationships']:
-                    if relationship['Type'] == 'CHILD':
-                        for word_id in relationship['Ids']:
-                            word = block_dict.get(word_id)
-                            if word and word['BlockType'] == 'WORD':
-                                cell_text += word['Text'] + ' '
 
-            cell_text = cell_text.strip()
-            print("DEBUG- cell text: ", cell_text) 
-            if any(keyword.lower() in cell_text.lower() for keyword in hole_keywords):
+        first_cell_text = ''
+        if 'Relationships' in first_cell_row:
+            for relationship in first_cell_row['Relationships']:  # Loop over relationships in the first cell
+                if relationship['Type'] == 'CHILD':
+                    for word_id in relationship['Ids']:  # Loop over word IDs in each relationship
+                        word = block_dict.get(word_id)
+                        if word and word['BlockType'] == 'WORD':
+                            first_cell_text += word['Text'] + ' '  # Append the OCR text from each word
+
+        first_cell_text = first_cell_text.strip()
+        print("DEBUG- cell text: ", first_cell_text)
+
+        if not found_holes:
+            if any(keyword.lower() in first_cell_text.lower() for keyword in hole_keywords):
+                found_holes = True
                 keep_row = True
-                break
-            elif any(keyword.lower() in cell_text.lower() for keyword in par_keywords):
+        if not found_pars:
+            if any(keyword.lower() in first_cell_text.lower() for keyword in par_keywords):
+                found_pars = True
                 keep_row = True
-                break
-            elif any(player.lower() in cell_text.lower() for player in players_names):
+
+        # Check for players in the first cell text
+        for player in players_names:
+            if player.lower() in first_cell_text.lower():
+                found_players.add(player)  # Add the player to the found set
                 keep_row = True
-                break
+            else:
+                # Use custom fuzzy matching to find the closest match
+                similarity = similarity_score(player.lower(), first_cell_text.lower())
+                if similarity > 50:  # Threshold for suggesting a match
+                    # Track the best suggestion for each player
+                    if player not in suggested_matches or similarity > suggested_matches[player][1]:
+                        suggested_matches[player] = (first_cell_text, similarity)
+                        keep_row = True
+                        is_suggested_row = True  # Mark this row as a suggested match
 
         # If the row should be kept, build its HTML
         if keep_row:
@@ -143,15 +200,32 @@ def build_html_table(sorted_table, block_dict, players_names, confidence_thresho
                 make_red = low_confidence and len(cell_text.strip()) < 3
 
                 if cell == first_cell_row:
-                    html += f"<th>{cell_text.strip()}</th>"
+                    cell_style = "color: orange;" if is_suggested_row else ""
+                    html += f"<th contenteditable='true' style='{cell_style}'>{cell_text.strip()}</th>"
                     continue
                 if make_red:
-                    html += f"<td style='color: red;'>{cell_text.strip()}</td>"
+                    html += f"<td contenteditable='true' style='color: red;'>{cell_text.strip()}</td>"
                     continue
                 elif cell_text.strip():  # Only create <td> if text is not empty
-                    html += f"<td>{cell_text.strip()}</td>"
+                    html += f"<td contenteditable='true'>{cell_text.strip()}</td>"
 
             html += "</tr>"
+
+    # Check if all players have been found
+    missing_players = set(players_names) - found_players
+    if missing_players:
+        warning_message = f"<tr><td colspan='10' style='color: red;'>Issue: The following players were not found: {', '.join(missing_players)}</td></tr>"
+        html += warning_message
+
+        # Add suggested matches to the warning message
+        if suggested_matches:
+            suggestions = []
+            for player, (match, similarity) in suggested_matches.items():
+                if player in missing_players:  # Only suggest for missing players
+                    suggestions.append(f"'{match}' (similarity: {similarity:.2f}%) might be '{player}'")
+            if suggestions:
+                suggestions_message = f"<tr><td colspan='10' style='color: orange;'>Suggestions: {', '.join(suggestions)}</td></tr>"
+                html += suggestions_message
 
     html += "</tbody></table></div>"
     return html
