@@ -2,7 +2,12 @@ html, body {
     height: 100%;
     margin: 0;
     padding: 0;
-    background: linear-gradient(to right, lightblue, lightgreen);
+    background-color: white;
+    background-image: url('back_5.jpg'); /* Replace with your image path */
+    background-size: cover; /* Ensures the image covers the whole background */
+    background-position: center; /* Centers the image */
+    background-repeat: no-repeat; /* Prevents repeating */
+    /* background: linear-gradient(to right, lightblue, lightgreen); */
     /*background-color: rgb(176, 222, 204);*/
     background-repeat: no-repeat;
     background-attachment: fixed;

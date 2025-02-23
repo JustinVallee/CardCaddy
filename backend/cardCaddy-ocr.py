@@ -30,7 +30,7 @@ def similarity_score(s1, s2):
         return 100  # Both strings are empty
     distance = levenshtein_distance(s1, s2)
     return (1 - distance / max_len) * 100
-
+# End of Fuzzy funcs
 
 def save_image_to_s3(image, bucket_name, filename):
     """Saves an image to S3."""
@@ -118,17 +118,119 @@ def sort_response_table(table, block_dict):
             sorted_cells = sorted(row_cells, key=lambda x: x.get('ColumnIndex', 0))
             sorted_table.append((row_index, sorted_cells))  # Append tuple (row_index, sorted row)
 
-        return sorted_table
+        no_bank_column_table = remove_blank_columns(sorted_table)
+
+        return no_bank_column_table
 
     else:
         print("No relationships found for this table.")
         return []
 
+def remove_blank_columns(sorted_table):
+    """Takes sorted_table
+    [
+        (1, [cell1, cell2, ...]),  # First row with cells sorted by column index
+        (2, [cell3, cell4, ...]),  # Second row, etc.
+        ...
+    ]
+    Removes columns where all cells in the column are empty (no words).
+    Returns the table in the same format without blank columns.
+    """
+
+    # Determine the number of columns (assuming all rows have the same number of cells)
+    num_columns = len(sorted_table[0][1])
+
+    # Track which columns are blank
+    is_column_blank = [True] * num_columns  # Assume all columns are blank initially
+
+    # Check each column to see if it's blank
+    for col_index in range(num_columns):
+        for row_index, row_cells in sorted_table:
+            if col_index < len(row_cells):  # Ensure the column exists in this row
+                cell = row_cells[col_index]
+                if 'Relationships' in cell:
+                    # Check if the cell has any words
+                    for relationship in cell['Relationships']:
+                        if relationship['Type'] == 'CHILD':
+                            is_column_blank[col_index] = False  # Column is not blank
+                            break
+                    if not is_column_blank[col_index]:
+                        break  # No need to check further rows for this column
+
+    # Create a new table without blank columns
+    no_blank_column_table = []
+    for row_index, row_cells in sorted_table:
+        new_row_cells = []
+        for col_index, cell in enumerate(row_cells):
+            if not is_column_blank[col_index]:  # Only keep non-blank columns
+                new_row_cells.append(cell)
+        no_blank_column_table.append((row_index, new_row_cells))
+
+    return no_blank_column_table
+
+def rearrange_table(html):
+    """
+    Rearranges the HTML table to ensure the "Hole" row is first and the "Par" row is second.
+    """
+    # Find the start and end of the <tbody> section
+    start = html.find("<tbody>") + len("<tbody>")
+    end = html.find("</tbody>")
+    tbody_content = html[start:end]
+
+    # Split the rows
+    rows = tbody_content.split("</tr>")
+    rows = [row.strip() for row in rows if row.strip()]
+
+    # Separate "Hole", "Par", and other rows
+    hole_row = None
+    par_row = None
+    other_rows = []
+
+    for row in rows:
+        if "Hole" in row:
+            hole_row = row + "</tr>"
+        elif "Par" in row:
+            par_row = row + "</tr>"
+        else:
+            other_rows.append(row + "</tr>")
+
+    # Rebuild the tbody content
+    new_tbody_content = ""
+    if hole_row:
+        new_tbody_content += hole_row
+    if par_row:
+        new_tbody_content += par_row
+    new_tbody_content += "".join(other_rows)
+
+    # Rebuild the full HTML
+    updated_html = html[:start] + new_tbody_content + html[end:]
+    return updated_html
+
+def is_next_3_cells_hole_num(row_cells, block_dict, front_or_back):
+    hole_nums = [1, 2, 3] if front_or_back.lower() == "front" else [10, 11, 12]
+    found_nums_count = 0
+
+    for cell in row_cells[1:4]:  # look if the cells next to the hole is 1,2,3 (Some card have to rows holes)
+        cell_text = ''
+        if 'Relationships' in cell:
+            for relationship in cell['Relationships']:
+                if relationship['Type'] == 'CHILD':
+                    for word_id in relationship['Ids']:
+                        word = block_dict.get(word_id)
+                        if word and word['BlockType'] == 'WORD':
+                            corrected_text = correct_ocr_text(word['Text'], word.get('Confidence', 100))
+                            cell_text += corrected_text + ' '
+
+        if cell_text.strip().isdigit() and int(cell_text.strip()) in hole_nums:
+            found_nums_count += 1
+
+    return True if found_nums_count == 3 else False 
+
 def build_html_table(sorted_table, block_dict, players_names, confidence_threshold=97.5):
     """Builds an HTML table based on relationships and detected tables."""
-    hole_keywords = ['Hole', 'trous', 'Hole number', 'TROU-HOLE']
+    hole_keywords = ['Hole', 'Holes', 'Trou', 'Trous' 'Hole number', 'TROU-HOLE']
     found_holes = False
-    par_keywords = ['Par', 'Normale', 'par men', 'par homme', 'Normale / Par']
+    par_keywords = ['Par', 'Pars', 'Normale', 'Par men', 'Par homme', 'Normale / Par', 'Normale-Par']
     found_pars = False
     # Initialize a set to track found players
     found_players = set()
@@ -156,17 +258,19 @@ def build_html_table(sorted_table, block_dict, players_names, confidence_thresho
         print("DEBUG- cell text: ", first_cell_text)
 
         if not found_holes:
-            if any(keyword.lower() in first_cell_text.lower() for keyword in hole_keywords):
-                found_holes = True
-                keep_row = True
+            if any(keyword.lower().strip() in first_cell_text.lower().strip() for keyword in hole_keywords):
+                if is_next_3_cells_hole_num(row_cells,block_dict,'front'):
+                    found_holes = True
+                    keep_row = True
+
         if not found_pars:
-            if any(keyword.lower() in first_cell_text.lower() for keyword in par_keywords):
+            if any(keyword.lower().strip() in first_cell_text.lower().strip() for keyword in par_keywords):
                 found_pars = True
                 keep_row = True
 
         # Check for players in the first cell text
         for player in players_names:
-            if player.lower() in first_cell_text.lower():
+            if player.lower().strip() in first_cell_text.lower().strip():
                 found_players.add(player)  # Add the player to the found set
                 keep_row = True
             else:
@@ -200,10 +304,20 @@ def build_html_table(sorted_table, block_dict, players_names, confidence_thresho
                 make_red = low_confidence and len(cell_text.strip()) < 3
 
                 if cell == first_cell_row:
+                    if any(keyword.lower().strip() in first_cell_text.lower().strip() for keyword in hole_keywords):
+                        cell_text = "Hole"
+                    elif any(keyword.lower().strip() in first_cell_text.lower().strip() for keyword in par_keywords):
+                        cell_text = "Par"
+                    elif is_suggested_row:
+                        # Find the player associated with the current cell_text
+                        for player, (match_text, similarity) in suggested_matches.items():
+                            if match_text == cell_text.strip():  # Check if the current cell_text matches the suggested match
+                                cell_text = player  # Set cell_text to the player's name
+                                break
                     cell_style = "color: orange;" if is_suggested_row else ""
                     html += f"<th contenteditable='true' style='{cell_style}'>{cell_text.strip()}</th>"
                     continue
-                if make_red:
+                if make_red or not cell_text.strip().isdigit():
                     html += f"<td contenteditable='true' style='color: red;'>{cell_text.strip()}</td>"
                     continue
                 elif cell_text.strip():  # Only create <td> if text is not empty
@@ -222,13 +336,14 @@ def build_html_table(sorted_table, block_dict, players_names, confidence_thresho
             suggestions = []
             for player, (match, similarity) in suggested_matches.items():
                 if player in missing_players:  # Only suggest for missing players
-                    suggestions.append(f"'{match}' (similarity: {similarity:.2f}%) might be '{player}'")
+                    suggestions.append(f"'{match}', {similarity:.0f}% similar to '{player}'")
             if suggestions:
-                suggestions_message = f"<tr><td colspan='10' style='color: orange;'>Suggestions: {', '.join(suggestions)}</td></tr>"
+                suggestions_message = f"<tr><td colspan='10' style='color: orange;'>OCR found: {', '.join(suggestions)}</td></tr>"
                 html += suggestions_message
 
     html += "</tbody></table></div>"
-    return html
+    html_rearrange = rearrange_table(html)
+    return html_rearrange
 
 def ocr(bucket_name, filename, players_list):
     """Extracts text and tables using AWS Textract from an image stored in S3."""
