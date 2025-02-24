@@ -65,12 +65,14 @@ def correct_ocr_text(text, confidence, confidence_threshold=98):
     """Corrects common OCR mistakes in the given text."""
     if len(text) < 3 and confidence < confidence_threshold:
         corrections = {
-            "a": "2",
+            "a": "9",
             "la": "12",
             ">": "7",
             "II": "11",
-            "I": "1",
-            "l": "1",
+            "I": "11",
+            "l": "11",
+            ")": "11",
+            "(": "11",
             ":": "8",
             "S": "5",
             "B": "8",
@@ -207,6 +209,7 @@ def rearrange_table(html):
     return updated_html
 
 def is_next_3_cells_hole_num(row_cells, block_dict, front_or_back):
+    '''Some card have sometimes 2 holes one for the holes and the other for the time need for the hole'''
     hole_nums = [1, 2, 3] if front_or_back.lower() == "front" else [10, 11, 12]
     found_nums_count = 0
 
@@ -226,40 +229,37 @@ def is_next_3_cells_hole_num(row_cells, block_dict, front_or_back):
 
     return True if found_nums_count == 3 else False 
 
-def build_html_table(sorted_table, block_dict, players_names, confidence_threshold=97.5):
-    """Builds an HTML table based on relationships and detected tables."""
-    hole_keywords = ['Hole', 'Holes', 'Trou', 'Trous' 'Hole number', 'TROU-HOLE']
-    found_holes = False
+def build_table(sorted_table, block_dict, players_names, confidence_threshold=97.5):
+    """Builds a matrix (list of lists) representing the table data and a confidence matrix."""
+    hole_keywords = ['Hole', 'Holes', 'Trou', 'Trous', 'Hole number', 'TROU-HOLE']
     par_keywords = ['Par', 'Pars', 'Normale', 'Par men', 'Par homme', 'Normale / Par', 'Normale-Par']
+    found_holes = False
     found_pars = False
-    # Initialize a set to track found players
     found_players = set()
-    # Initialize a dictionary to track suggested matches
     suggested_matches = {}  # Format: {player: (best_match_text, best_similarity_score)}
-
-    html = """<div class="table-responsive"><table class="table table-bordered table-dark"><tbody>"""
+    table_matrix = []
+    confidence_matrix = []  # Matrix to track low confidence cells
 
     for row_index, row_cells in sorted_table:
-        # Check if the row should be kept
         keep_row = False
-        is_suggested_row = False  # Flag to track if the row is kept due to a suggested match
-        first_cell_row = row_cells[0] # Considering the first cell of the row is the column header
-
+        is_suggested_row = False
+        first_cell_row = row_cells[0]  # First cell of the row (header or player name)
         first_cell_text = ''
+
+        # Extract text from the first cell
         if 'Relationships' in first_cell_row:
-            for relationship in first_cell_row['Relationships']:  # Loop over relationships in the first cell
+            for relationship in first_cell_row['Relationships']:
                 if relationship['Type'] == 'CHILD':
-                    for word_id in relationship['Ids']:  # Loop over word IDs in each relationship
+                    for word_id in relationship['Ids']:
                         word = block_dict.get(word_id)
                         if word and word['BlockType'] == 'WORD':
-                            first_cell_text += word['Text'] + ' '  # Append the OCR text from each word
-
+                            first_cell_text += word['Text'] + ' '
         first_cell_text = first_cell_text.strip()
-        print("DEBUG- cell text: ", first_cell_text)
 
+        # Check for hole and par rows
         if not found_holes:
             if any(keyword.lower().strip() in first_cell_text.lower().strip() for keyword in hole_keywords):
-                if is_next_3_cells_hole_num(row_cells,block_dict,'front'):
+                if is_next_3_cells_hole_num(row_cells, block_dict, 'front'):
                     found_holes = True
                     keep_row = True
 
@@ -271,22 +271,22 @@ def build_html_table(sorted_table, block_dict, players_names, confidence_thresho
         # Check for players in the first cell text
         for player in players_names:
             if player.lower().strip() in first_cell_text.lower().strip():
-                found_players.add(player)  # Add the player to the found set
+                found_players.add(player)
                 keep_row = True
             else:
-                # Use custom fuzzy matching to find the closest match
+                # Use fuzzy matching to find the closest match
                 similarity = similarity_score(player.lower(), first_cell_text.lower())
                 if similarity > 50:  # Threshold for suggesting a match
-                    # Track the best suggestion for each player
                     if player not in suggested_matches or similarity > suggested_matches[player][1]:
                         suggested_matches[player] = (first_cell_text, similarity)
                         keep_row = True
-                        is_suggested_row = True  # Mark this row as a suggested match
+                        is_suggested_row = True
 
-        # If the row should be kept, build its HTML
+        # If the row should be kept, add it to the matrix
         if keep_row:
-            html += "<tr>"
-            for cell in row_cells[:10]:  # Keep only the first 10 columns
+            row_data = []
+            confidence_row = []  # Track low confidence for each cell in this row
+            for cell in row_cells:
                 cell_text = ''
                 low_confidence = False
                 if 'Relationships' in cell:
@@ -297,48 +297,128 @@ def build_html_table(sorted_table, block_dict, players_names, confidence_thresho
                                 if word and word['BlockType'] == 'WORD':
                                     corrected_text = correct_ocr_text(word['Text'], word.get('Confidence', 100))
                                     cell_text += corrected_text + ' '
-
                                     if word.get('Confidence', 100) < confidence_threshold:
                                         low_confidence = True
 
-                make_red = low_confidence and len(cell_text.strip()) < 3
-
+                # Handle special cases for the first cell
                 if cell == first_cell_row:
                     if any(keyword.lower().strip() in first_cell_text.lower().strip() for keyword in hole_keywords):
                         cell_text = "Hole"
                     elif any(keyword.lower().strip() in first_cell_text.lower().strip() for keyword in par_keywords):
                         cell_text = "Par"
                     elif is_suggested_row:
-                        # Find the player associated with the current cell_text
                         for player, (match_text, similarity) in suggested_matches.items():
-                            if match_text == cell_text.strip():  # Check if the current cell_text matches the suggested match
-                                cell_text = player  # Set cell_text to the player's name
+                            if match_text == cell_text.strip():
+                                cell_text = player
                                 break
-                    cell_style = "color: orange;" if is_suggested_row else ""
-                    html += f"<th contenteditable='true' style='{cell_style}'>{cell_text.strip()}</th>"
-                    continue
-                if make_red or not cell_text.strip().isdigit():
-                    html += f"<td contenteditable='true' style='color: red;'>{cell_text.strip()}</td>"
-                    continue
-                elif cell_text.strip():  # Only create <td> if text is not empty
-                    html += f"<td contenteditable='true'>{cell_text.strip()}</td>"
 
-            html += "</tr>"
+                row_data.append(cell_text.strip())
+                confidence_row.append(low_confidence)  # Add low confidence flag to the confidence row
+
+            table_matrix.append(row_data)
+            confidence_matrix.append(confidence_row)  # Add the confidence row to the confidence matrix
+
+    return table_matrix, confidence_matrix, found_players, suggested_matches
+
+def clean_table(table_matrix):
+    """
+    Cleans the table matrix by removing unnecessary columns and cleaning mixed content in cells.
+    - Finds the "Hole" row and removes columns between 9 and 10 if 10 is not immediately after 9.
+    - Removes all columns after 18.
+    - Cleans mixed content in cells:
+        - For the first cell of each row, remove digits if present.
+        - For all other cells:
+            - If the cell is mixed (digits and characters), keep only digits.
+            - If the cell contains only characters, replace it with "99".
+    """
+    if not table_matrix:
+        return table_matrix
+
+    # Find the "Hole" row (first row in the matrix)
+    hole_row = table_matrix[0]
+    if "Hole" not in hole_row[0]:
+        raise ValueError("The first row must start with 'Hole'.")
+
+    # Find the index of "9" and "10"
+    try:
+        index_9 = hole_row.index("9")
+        index_10 = hole_row.index("10")
+    except ValueError:
+        raise ValueError("The 'Hole' row must contain '9' and '10'.")
+
+    # Track indexes to remove
+    indexes_to_remove = set()
+
+    # Check if "10" is not immediately after "9"
+    if index_10 != index_9 + 1:
+        # Add all indexes between "9" and "10" to the removal set
+        indexes_to_remove.update(range(index_9 + 1, index_10))
+
+    # Find the index of "18"
+    try:
+        index_18 = hole_row.index("18")
+    except ValueError:
+        raise ValueError("The 'Hole' row must contain '18'.")
+
+    # Add all indexes after "18" to the removal set
+    indexes_to_remove.update(range(index_18 + 1, len(hole_row)))
+
+    # Remove the tracked indexes from all rows in the matrix
+    cleaned_matrix = []
+    for row in table_matrix:
+        cleaned_row = [cell for i, cell in enumerate(row) if i not in indexes_to_remove]
+        cleaned_matrix.append(cleaned_row)
+
+    # Step 2: Clean mixed content in cells
+    for row in cleaned_matrix:
+        for i, cell in enumerate(row):
+            # Remove all whitespace from the cell
+            cell = ''.join(cell.split())
+
+            if i == 0:  # First cell of the row
+                # Remove digits if present
+                row[i] = ''.join([char for char in cell if not char.isdigit()])
+            else:  # All other cells
+                if any(char.isdigit() for char in cell) and any(not char.isdigit() for char in cell):  # Mixed content
+                    # Keep only digits
+                    row[i] = ''.join([char for char in cell if char.isdigit()])
+                elif not any(char.isdigit() for char in cell):  # Only characters
+                    # Replace with "99"
+                    row[i] = "99"
+
+    return cleaned_matrix
+
+def build_html_table(table_matrix, confidence_matrix, found_players, suggested_matches, players_names):
+    """Builds an HTML table from the matrix."""
+    html = """<div class="table-responsive"><table class="table table-bordered table-dark"><tbody>"""
+
+    for row_index, row in enumerate(table_matrix):
+        html += "<tr>"
+        for i, cell_text in enumerate(row):
+            low_confidence = confidence_matrix[row_index][i] or (str(cell_text).isdigit() and int(cell_text) > 18)
+            cell_style = 'color: red;' if low_confidence else ''
+            if i == 0:  # First cell, make tr
+                html += f"<th contenteditable='true' style='{cell_style}'>{cell_text}</th>"
+            else: # Other cells make td
+                html += f"<td contenteditable='true' style='{cell_style}'>{cell_text}</td>"
+
+        html += "</tr>"
 
     # Check if all players have been found
     missing_players = set(players_names) - found_players
     if missing_players:
-        warning_message = f"<tr><td colspan='10' style='color: red;'>Issue: The following players were not found: {', '.join(missing_players)}</td></tr>"
+        colspan = len(table_matrix[0]) if table_matrix else 1
+        warning_message = f"<tr><td colspan='{colspan}' style='color: red;'>Issue: The following players were not found: {', '.join(missing_players)}</td></tr>"
         html += warning_message
 
         # Add suggested matches to the warning message
         if suggested_matches:
             suggestions = []
             for player, (match, similarity) in suggested_matches.items():
-                if player in missing_players:  # Only suggest for missing players
+                if player in missing_players:
                     suggestions.append(f"'{match}', {similarity:.0f}% similar to '{player}'")
             if suggestions:
-                suggestions_message = f"<tr><td colspan='10' style='color: orange;'>OCR found: {', '.join(suggestions)}</td></tr>"
+                suggestions_message = f"<tr><td colspan='{colspan}' style='color: orange;'>OCR found: {', '.join(suggestions)}</td></tr>"
                 html += suggestions_message
 
     html += "</tbody></table></div>"
@@ -375,18 +455,61 @@ def ocr(bucket_name, filename, players_list):
 
     tables = [block for block in block_dict.values() if block["BlockType"] == "TABLE"]
 
-    html_tables = []
-    # Build HTML tables based on the relationships and table blocks
-    for table in tables:
-        sorted_table = sort_response_table(table, block_dict)
-        html_table = build_html_table(sorted_table, block_dict, players_names)
-        html_tables.append(html_table)  # Append each HTML table to the list
+    if len(tables) < 2:
+        # If there's only one table, process it as usual
+        sorted_table = sort_response_table(tables[0], block_dict)
+        table_matrix, confidence_matrix, found_players, suggested_matches = build_table(sorted_table, block_dict, players_names)
+        cleaned_matrix = clean_table(table_matrix)
+        html_table = build_html_table(cleaned_matrix, confidence_matrix, found_players, suggested_matches, players_names)
+        return {
+            "html_table": html_table
+        }
 
-    html_tables_str = "".join(html_tables)
+    # If there are multiple tables, merge them
+    first_table = tables[0]
+    second_table = tables[1]
+
+    # Sort both tables
+    sorted_first_table = sort_response_table(first_table, block_dict)
+    sorted_second_table = sort_response_table(second_table, block_dict)
+
+    # Merge the tables by concatenating rows
+    merged_table = merge_tables(sorted_first_table, sorted_second_table)
+
+    # Step 1: Build the table matrix
+    table_matrix, confidence_matrix, found_players, suggested_matches = build_table(merged_table, block_dict, players_names)
+
+    # Step 2: Clean the table matrix
+    cleaned_matrix = clean_table(table_matrix)
+
+    # Step 3: Generate the HTML table
+    html_table = build_html_table(cleaned_matrix, confidence_matrix, found_players, suggested_matches, players_names)
 
     return {
-        "html_table": html_tables_str
+        "players_names": players_names,
+        "Table matrix": table_matrix,
+        "html_table": html_table
     }
+
+def merge_tables(sorted_first_table, sorted_second_table):
+    # Merge the tables horizontally by matching row indices
+    merged_table = []
+    first_table_rows = {row_index: cells for row_index, cells in sorted_first_table}
+    second_table_rows = {row_index: cells for row_index, cells in sorted_second_table}
+
+    # Iterate through all unique row indices
+    all_row_indices = set(first_table_rows.keys()).union(set(second_table_rows.keys()))
+    for row_index in sorted(all_row_indices):
+        # Get cells from the first table (if they exist)
+        first_table_cells = first_table_rows.get(row_index, [])
+        # Get cells from the second table (if they exist)
+        second_table_cells = second_table_rows.get(row_index, [])
+        # Combine the cells, appending the second table's cells to the first table's row
+        merged_cells = first_table_cells + second_table_cells
+        # Add the merged row to the final table
+        merged_table.append((row_index, merged_cells))
+
+    return merged_table
 
 def lambda_handler(event, context):
     try:
