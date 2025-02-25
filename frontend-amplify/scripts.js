@@ -187,11 +187,6 @@ function showSuccessMessage() {
     }, 800);
 }
 
-document.getElementById("add-player-btn").addEventListener("click", function() {
-    var playerDiv = document.getElementById("newPlayer");
-    playerDiv.style.display = playerDiv.style.display === "none" ? "block" : "none";
-});
-
 document.addEventListener("DOMContentLoaded", function () {
     const dateInput = document.getElementById("dateSelector");
     const today = new Date().toISOString().split("T")[0]; // Get today's date in YYYY-MM-DD format

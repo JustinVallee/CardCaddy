@@ -8,7 +8,6 @@ html, body {
     background-repeat: no-repeat; /* Prevents repeating */
     background-position: center center; /* Centers the image */
     background-attachment: fixed; /* Keeps the background from moving */
-    overflow-y: scroll; /* Always shows scrollbar to prevent layout shift */
     /* background: linear-gradient(to right, lightblue, lightgreen); */
     /*background-color: rgb(176, 222, 204);*/
     /* Add padding for safe areas iphone bezels */
