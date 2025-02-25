@@ -61,33 +61,28 @@ def call_other_lambda(function_name, payload):
     response_payload = json.loads(response['Payload'].read().decode('utf-8'))
     return response_payload
 
-def correct_ocr_text(text, confidence, confidence_threshold=98):
-    """Corrects common OCR mistakes in the given text."""
-    if len(text) < 3 and confidence < confidence_threshold:
-        corrections = {
-            "a": "9",
-            "la": "12",
-            ">": "7",
-            "II": "11",
-            "I": "11",
-            "l": "11",
-            ")": "11",
-            "(": "11",
-            ":": "8",
-            "S": "5",
-            "B": "8",
-            "n0": "4"
-        }
-        
-        for mistake, correction in corrections.items():
-            text = text.replace(mistake, correction)
-        return text
-    else:
-        return text
+def correct_ocr_text(text, confidence=0, confidence_threshold=98.7):
+    """Corrects common OCR mistakes if text length is less than 3."""
+    corrections = {
+        "z": "2", "Z": "2", "A": "4", "n0": "4",
+        "s": "5", "S": "5", "$": "5",
+        "b": "6", "G": "6",
+        "x": "7", ">": "7", "T": "7", "L": "7", "?": "7",
+        "00": "8", "OO": "8", "oo": "8", ":": "8", "B": "8",
+        "g": "9", "P": "9", "a": "9",
+        "I": "11", "II": "11", "l": "11", "ll": "11",
+        ")": "11", "(": "11", "))": "11", "((": "11", "()": "11",
+        "la": "12"
+    }
 
-def sort_response_table(table, block_dict):
-    """
-        Returns a sorted table array of tuples. Each tuple is a row sorted by ColumnIndex.
+    text = text.strip()
+    if len(text) < 3 and confidence < confidence_threshold:
+        return corrections.get(text, text)  # Replace only if exact match
+    return text
+
+def sort_textract_table(table, block_dict):
+    """ 
+        Returns a sorted texract table array of tuples based on the Relationships of textract with no blank columns (Before returning, it calls remove_blank_columns). Each tuple is a row sorted by ColumnIndex.
         eg.
         [
             (1, [cell1, cell2, ...]),  # First row with cells sorted by column index
@@ -95,6 +90,43 @@ def sort_response_table(table, block_dict):
             ...
         ]
     """
+
+    def remove_blank_columns(sorted_textract_table):
+        """Nested func. Takes sorted_textract_table. Returns no_blank_columns_textract_table (same format).
+            Removes columns where all cells in the column are empty (no words).
+            Returns the table in the same format without blank columns.
+        """
+
+        # Determine the number of columns (assuming all rows have the same number of cells)
+        num_columns = len(sorted_textract_table[0][1])
+
+        # Track which columns are blank
+        is_column_blank = [True] * num_columns  # Assume all columns are blank initially
+
+        # Check each column to see if it's blank
+        for col_index in range(num_columns):
+            for row_index, row_cells in sorted_textract_table:
+                if col_index < len(row_cells):  # Ensure the column exists in this row
+                    cell = row_cells[col_index]
+                    if 'Relationships' in cell:
+                        # Check if the cell has any words
+                        for relationship in cell['Relationships']:
+                            if relationship['Type'] == 'CHILD':
+                                is_column_blank[col_index] = False  # Column is not blank
+                                break
+                        if not is_column_blank[col_index]:
+                            break  # No need to check further rows for this column
+
+        # Create a new table without blank columns
+        no_blank_columns_textract_table = []
+        for row_index, row_cells in sorted_textract_table:
+            new_row_cells = []
+            for col_index, cell in enumerate(row_cells):
+                if not is_column_blank[col_index]:  # Only keep non-blank columns
+                    new_row_cells.append(cell)
+            no_blank_columns_textract_table.append((row_index, new_row_cells))
+
+        return no_blank_columns_textract_table
 
     if 'Relationships' in table:  # Ensure the table has relationships
         cells = []
@@ -120,93 +152,13 @@ def sort_response_table(table, block_dict):
             sorted_cells = sorted(row_cells, key=lambda x: x.get('ColumnIndex', 0))
             sorted_table.append((row_index, sorted_cells))  # Append tuple (row_index, sorted row)
 
-        no_bank_column_table = remove_blank_columns(sorted_table)
+        sorted_no_blank_columns_textract_table = remove_blank_columns(sorted_table)
 
-        return no_bank_column_table
+        return sorted_no_blank_columns_textract_table
 
     else:
         print("No relationships found for this table.")
         return []
-
-def remove_blank_columns(sorted_table):
-    """Takes sorted_table
-    [
-        (1, [cell1, cell2, ...]),  # First row with cells sorted by column index
-        (2, [cell3, cell4, ...]),  # Second row, etc.
-        ...
-    ]
-    Removes columns where all cells in the column are empty (no words).
-    Returns the table in the same format without blank columns.
-    """
-
-    # Determine the number of columns (assuming all rows have the same number of cells)
-    num_columns = len(sorted_table[0][1])
-
-    # Track which columns are blank
-    is_column_blank = [True] * num_columns  # Assume all columns are blank initially
-
-    # Check each column to see if it's blank
-    for col_index in range(num_columns):
-        for row_index, row_cells in sorted_table:
-            if col_index < len(row_cells):  # Ensure the column exists in this row
-                cell = row_cells[col_index]
-                if 'Relationships' in cell:
-                    # Check if the cell has any words
-                    for relationship in cell['Relationships']:
-                        if relationship['Type'] == 'CHILD':
-                            is_column_blank[col_index] = False  # Column is not blank
-                            break
-                    if not is_column_blank[col_index]:
-                        break  # No need to check further rows for this column
-
-    # Create a new table without blank columns
-    no_blank_column_table = []
-    for row_index, row_cells in sorted_table:
-        new_row_cells = []
-        for col_index, cell in enumerate(row_cells):
-            if not is_column_blank[col_index]:  # Only keep non-blank columns
-                new_row_cells.append(cell)
-        no_blank_column_table.append((row_index, new_row_cells))
-
-    return no_blank_column_table
-
-def rearrange_table(html):
-    """
-    Rearranges the HTML table to ensure the "Hole" row is first and the "Par" row is second.
-    """
-    # Find the start and end of the <tbody> section
-    start = html.find("<tbody>") + len("<tbody>")
-    end = html.find("</tbody>")
-    tbody_content = html[start:end]
-
-    # Split the rows
-    rows = tbody_content.split("</tr>")
-    rows = [row.strip() for row in rows if row.strip()]
-
-    # Separate "Hole", "Par", and other rows
-    hole_row = None
-    par_row = None
-    other_rows = []
-
-    for row in rows:
-        if "Hole" in row:
-            hole_row = row + "</tr>"
-        elif "Par" in row:
-            par_row = row + "</tr>"
-        else:
-            other_rows.append(row + "</tr>")
-
-    # Rebuild the tbody content
-    new_tbody_content = ""
-    if hole_row:
-        new_tbody_content += hole_row
-    if par_row:
-        new_tbody_content += par_row
-    new_tbody_content += "".join(other_rows)
-
-    # Rebuild the full HTML
-    updated_html = html[:start] + new_tbody_content + html[end:]
-    return updated_html
 
 def is_next_3_cells_hole_num(row_cells, block_dict, front_or_back):
     '''Some card have sometimes 2 holes one for the holes and the other for the time need for the hole'''
@@ -222,17 +174,17 @@ def is_next_3_cells_hole_num(row_cells, block_dict, front_or_back):
                         word = block_dict.get(word_id)
                         if word and word['BlockType'] == 'WORD':
                             corrected_text = correct_ocr_text(word['Text'], word.get('Confidence', 100))
-                            cell_text += corrected_text + ' '
+                            cell_text += corrected_text
 
         if cell_text.strip().isdigit() and int(cell_text.strip()) in hole_nums:
             found_nums_count += 1
 
     return True if found_nums_count == 3 else False 
 
-def build_table(sorted_table, block_dict, players_names, confidence_threshold=97.5):
+def build_table(sorted_table, block_dict, players_names, confidence_threshold=96):
     """Builds a matrix (list of lists) representing the table data and a confidence matrix."""
     hole_keywords = ['Hole', 'Holes', 'Trou', 'Trous', 'Hole number', 'TROU-HOLE']
-    par_keywords = ['Par', 'Pars', 'Normale', 'Par men', 'Par homme', 'Normale / Par', 'Normale-Par']
+    par_keywords = ['Par', 'Pars', 'Normale', 'Mens par', 'Par men', 'Par homme', 'Normale / Par', 'Normale-Par']
     found_holes = False
     found_pars = False
     found_players = set()
@@ -296,9 +248,12 @@ def build_table(sorted_table, block_dict, players_names, confidence_threshold=97
                                 word = block_dict.get(word_id)
                                 if word and word['BlockType'] == 'WORD':
                                     corrected_text = correct_ocr_text(word['Text'], word.get('Confidence', 100))
-                                    cell_text += corrected_text + ' '
+                                    cell_text += corrected_text
                                     if word.get('Confidence', 100) < confidence_threshold:
                                         low_confidence = True
+
+                if len(cell_text) > 1:
+                    cell_text = correct_ocr_text(cell_text) # for cases where the celltext is 2 words that need to be corrected like (0 0) 
 
                 # Handle special cases for the first cell
                 if cell == first_cell_row:
@@ -322,10 +277,10 @@ def build_table(sorted_table, block_dict, players_names, confidence_threshold=97
 
 def clean_table(table_matrix):
     """
-    Cleans the table matrix by removing unnecessary columns and cleaning mixed content in cells.
-    - Finds the "Hole" row and removes columns between 9 and 10 if 10 is not immediately after 9.
-    - Removes all columns after 18.
-    - Cleans mixed content in cells:
+    Cleans the table matrix by:
+    - Ensuring the "Hole" row is first and the "Par" row is second.
+    - Removing unnecessary columns (between 9 and 10 if 10 is not immediately after 9, and after 18).
+    - Cleaning mixed content in cells:
         - For the first cell of each row, remove digits if present.
         - For all other cells:
             - If the cell is mixed (digits and characters), keep only digits.
@@ -334,12 +289,30 @@ def clean_table(table_matrix):
     if not table_matrix:
         return table_matrix
 
-    # Find the "Hole" row (first row in the matrix)
-    hole_row = table_matrix[0]
-    if "Hole" not in hole_row[0]:
-        raise ValueError("The first row must start with 'Hole'.")
+    # Step 1: Ensure "Hole" and "Par" rows are at the top
+    hole_row = None
+    par_row = None
+    other_rows = []
 
-    # Find the index of "9" and "10"
+    for row in table_matrix:
+        if "Hole" in row[0]:  # Check if the first cell contains "Hole"
+            hole_row = row
+        elif "Par" in row[0]:  # Check if the first cell contains "Par"
+            par_row = row
+        else:
+            other_rows.append(row)
+
+    # Ensure "Hole" and "Par" rows are present
+    if not hole_row:
+        raise ValueError("The table must contain a 'Hole' row.")
+    if not par_row:
+        raise ValueError("The table must contain a 'Par' row.")
+
+    # Rebuild the table with "Hole" and "Par" rows at the top
+    table_matrix = [hole_row, par_row] + other_rows
+
+    # Step 2: Remove unnecessary columns
+    # Find the index of "9" and "10" in the "Hole" row
     try:
         index_9 = hole_row.index("9")
         index_10 = hole_row.index("10")
@@ -354,7 +327,7 @@ def clean_table(table_matrix):
         # Add all indexes between "9" and "10" to the removal set
         indexes_to_remove.update(range(index_9 + 1, index_10))
 
-    # Find the index of "18"
+    # Find the index of "18" in the "Hole" row
     try:
         index_18 = hole_row.index("18")
     except ValueError:
@@ -369,7 +342,7 @@ def clean_table(table_matrix):
         cleaned_row = [cell for i, cell in enumerate(row) if i not in indexes_to_remove]
         cleaned_matrix.append(cleaned_row)
 
-    # Step 2: Clean mixed content in cells
+    # Step 3: Clean mixed content in cells
     for row in cleaned_matrix:
         for i, cell in enumerate(row):
             # Remove all whitespace from the cell
@@ -382,48 +355,70 @@ def clean_table(table_matrix):
                 if any(char.isdigit() for char in cell) and any(not char.isdigit() for char in cell):  # Mixed content
                     # Keep only digits
                     row[i] = ''.join([char for char in cell if char.isdigit()])
-                elif not any(char.isdigit() for char in cell):  # Only characters
-                    # Replace with "99"
-                    row[i] = "99"
+                elif (not any(char.isdigit() for char in cell)) or (cell.isdigit() and int(cell) > 45):  # Only characters or number higer than 45
+                    row[i] = ""
 
-    return cleaned_matrix
+    # Step 4: Hardcode Hole row numbers
+    for i in range(1, len(cleaned_matrix[0])):  
+        cleaned_matrix[0][i] = i  
 
-def build_html_table(table_matrix, confidence_matrix, found_players, suggested_matches, players_names):
-    """Builds an HTML table from the matrix."""
-    html = """<div class="table-responsive"><table class="table table-bordered table-dark"><tbody>"""
+    return cleaned_matrix  
 
-    for row_index, row in enumerate(table_matrix):
-        html += "<tr>"
+
+# Final Step
+def build_html_table(clean_matrix, confidence_matrix, found_players, suggested_matches, players_names):
+    """Builds and returns a HTML table from the matrix."""
+    
+    html = """<div class="table-responsive" style="border-radius:5px"><table class="table table-bordered table-dark"><tbody>"""
+
+    for row_index, row in enumerate(clean_matrix):
+        if row_index == 0: 
+            tr_style = "--bs-table-bg: #28a745; !important"  # Set green background for HOLE row
+        elif row_index == 1:
+            tr_style = "--bs-table-bg: #0d6efd; !important"   # Set blue background for PAR row
+        else: tr_style = ''
+        html += f'<tr style="{tr_style}">'
         for i, cell_text in enumerate(row):
             low_confidence = confidence_matrix[row_index][i] or (str(cell_text).isdigit() and int(cell_text) > 18)
-            cell_style = 'color: red;' if low_confidence else ''
+            cell_style = 'color: red;' if (low_confidence and i !=0 and cell_text != "") or cell_text == '1' else ''
+            cell_style = 'color: orange;' if cell_text in suggested_matches else cell_style # if suggested player
+            cell_style = '' if row_index==0 else cell_style # if hole row, no color text (its harcoded so we dont need low confidence)
             if i == 0:  # First cell, make tr
-                html += f"<th contenteditable='true' style='{cell_style}'>{cell_text}</th>"
+                if cell_text in ['Hole', 'Par']:
+                    html += f"<th><strong>{cell_text.upper()}</strong</th>"
+                else:
+                    html += f"<th contenteditable='true' style='{cell_style}'><strong>{cell_text.capitalize()}</strong</th>"
             else: # Other cells make td
-                html += f"<td contenteditable='true' style='{cell_style}'>{cell_text}</td>"
+                contenteditable = 'contenteditable="true"' if not row_index==0 else ''
+                html += f"<td {contenteditable} style='{cell_style}'>{cell_text}</td>"
 
         html += "</tr>"
 
     # Check if all players have been found
     missing_players = set(players_names) - found_players
     if missing_players:
-        colspan = len(table_matrix[0]) if table_matrix else 1
-        warning_message = f"<tr><td colspan='{colspan}' style='color: red;'>Issue: The following players were not found: {', '.join(missing_players)}</td></tr>"
-        html += warning_message
+        colspan = len(clean_matrix[0]) if clean_matrix else 1
 
-        # Add suggested matches to the warning message
-        if suggested_matches:
-            suggestions = []
-            for player, (match, similarity) in suggested_matches.items():
-                if player in missing_players:
-                    suggestions.append(f"'{match}', {similarity:.0f}% similar to '{player}'")
-            if suggestions:
-                suggestions_message = f"<tr><td colspan='{colspan}' style='color: orange;'>OCR found: {', '.join(suggestions)}</td></tr>"
-                html += suggestions_message
+        # Filter out missing players that have suggestions
+        missing_players_without_suggestions = missing_players - set(suggested_matches.keys())
+
+        # Display a warning message only if there are missing players without suggestions
+        if missing_players_without_suggestions:
+            warning_message = f"<tr><td colspan='{colspan}' style='color: red;'>Players: {', '.join(missing_players_without_suggestions)} were not found. Rewrite the name on the card.</td></tr>"
+            html += warning_message
+
+        # Add suggested matches to the warning message (if any)
+        suggestions = []
+        for player, (match, similarity) in suggested_matches.items():
+            if player in missing_players:
+                suggestions.append(f"'{match}', {similarity:.0f}% similar to '{player}'")
+        
+        if suggestions:
+            suggestions_message = f"<tr><td colspan='{colspan}' style='color: orange;'>OCR found: {', '.join(suggestions)}</td></tr>"
+            html += suggestions_message
 
     html += "</tbody></table></div>"
-    html_rearrange = rearrange_table(html)
-    return html_rearrange
+    return html
 
 def ocr(bucket_name, filename, players_list):
     """Extracts text and tables using AWS Textract from an image stored in S3."""
@@ -455,10 +450,9 @@ def ocr(bucket_name, filename, players_list):
 
     tables = [block for block in block_dict.values() if block["BlockType"] == "TABLE"]
 
-    if len(tables) < 2:
-        # If there's only one table, process it as usual
-        sorted_table = sort_response_table(tables[0], block_dict)
-        table_matrix, confidence_matrix, found_players, suggested_matches = build_table(sorted_table, block_dict, players_names)
+    if len(tables) == 1: # If there's only one table
+        sorted_textract_table = sort_textract_table(tables[0], block_dict)
+        table_matrix, confidence_matrix, found_players, suggested_matches = build_table(sorted_textract_table, block_dict, players_names)
         cleaned_matrix = clean_table(table_matrix)
         html_table = build_html_table(cleaned_matrix, confidence_matrix, found_players, suggested_matches, players_names)
         return {
@@ -466,15 +460,15 @@ def ocr(bucket_name, filename, players_list):
         }
 
     # If there are multiple tables, merge them
-    first_table = tables[0]
-    second_table = tables[1]
+    raw_1st_textract_table = tables[0]
+    raw_2nd_textract_table = tables[1]
 
     # Sort both tables
-    sorted_first_table = sort_response_table(first_table, block_dict)
-    sorted_second_table = sort_response_table(second_table, block_dict)
+    sorted_1st_textract_table = sort_textract_table(raw_1st_textract_table, block_dict)
+    sorted_2nd_textract_table = sort_textract_table(raw_2nd_textract_table, block_dict)
 
     # Merge the tables by concatenating rows
-    merged_table = merge_tables(sorted_first_table, sorted_second_table)
+    merged_table = merge_tables(sorted_1st_textract_table, sorted_2nd_textract_table)
 
     # Step 1: Build the table matrix
     table_matrix, confidence_matrix, found_players, suggested_matches = build_table(merged_table, block_dict, players_names)
@@ -487,7 +481,8 @@ def ocr(bucket_name, filename, players_list):
 
     return {
         "players_names": players_names,
-        "Table matrix": table_matrix,
+        "Raw table matrix": table_matrix,
+        "Cleaned matrix": cleaned_matrix,
         "html_table": html_table
     }
 

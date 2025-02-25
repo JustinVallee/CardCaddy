@@ -7,6 +7,13 @@
     <!-- Ensures proper scaling on mobile devices -->
     <!--<meta name="theme-color" content="rgb(176, 222, 204)">--> <!-- Sets the browser's UI theme color and iphone bezel -->
     <title>CardCaddy</title>
+    <!-- Favicon for Browsers -->
+    <link rel="icon" type="image/png" sizes="32x32" href="icon.jpg">
+    <link rel="icon" type="image/png" sizes="16x16" href="icon.jpg">
+
+    <!-- Apple Touch Icon for iPhones -->
+    <link rel="apple-touch-icon" sizes="180x180" href="icon.jpg">
+
     <!-- BootStrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-Zenh87qX5JnK2Jl0vWa8Ck2rdkQ2Bzep5IDxbcnCeuOxjzrPF/et3URy9Bv1WTRi" crossorigin="anonymous">
     <!-- JavaScript Bundle with Popper -->
@@ -37,7 +44,7 @@
                                     <!-- File input to select an image -->
                                     <div class="col-md-6 col-sm-8 col-10 mb-3">
                                         <label for="imageInput" class="form-label">Upload Golf Scorecard <span class="madatory-asterix">*</span></label>
-                                        <input type="file" id="imageInput" class="form-control" accept="image/*" multiple required>
+                                        <input type="file" id="imageInput" class="form-control" accept="image/*" required>
                                     </div>
                                     <!-- Select players -->
                                     <div class="col-md-6 col-sm-8 col-10 mb-3">
@@ -45,7 +52,14 @@
                                         <select data-placeholder="Select players..." id="playerInput" size="2" class="form-select chosen-select" multiple>
                                             <!-- Options will be populated by JavaScript -->
                                         </select>
-                                        <input type="text" id="newPlayerInput" class="form-control mt-3" placeholder="Add new players">
+                                        <!-- Add new player button -->
+                                        <button type="button" id="add-player-btn" class="btn btn-dark btn-sm mt-2">
+                                            <i class="fa-solid fa-plus"></i> Add Players
+                                        </button>
+                                        <div id="newPlayer" style="display: none;">
+                                            <!--<label for="newPlayerInput" class="form-label">Add Player</label>-->
+                                            <input type="text" id="newPlayerInput" class="form-control mt-1" placeholder="Add Players">
+                                        </div>
                                     </div>
                                     <!-- Date selector -->
                                     <div class="col-md-6 col-sm-8 col-10 mb-3">
