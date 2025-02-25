@@ -31,7 +31,7 @@ function submitForm(event) {
 
     // Validate that at least one of the fields is filled
     if (playerInput === "" && newPlayerInput === "") {
-        alert("Please provide at least one player (either select from the list or enter a new player).");
+        alert("Please select at least one player.");
         return; // Stop the form from submitting
     }
    
@@ -186,3 +186,9 @@ function showSuccessMessage() {
         overlay.style.display = 'none'; // Hide overlay
     }, 800);
 }
+
+document.addEventListener("DOMContentLoaded", function () {
+    const dateInput = document.getElementById("dateSelector");
+    const today = new Date().toISOString().split("T")[0]; // Get today's date in YYYY-MM-DD format
+    dateInput.value = today;
+});
