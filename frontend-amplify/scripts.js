@@ -50,7 +50,7 @@ function main(){
 
     const fileInput = document.getElementById("imageInput");
     const file = fileInput.files[0];
-    document.getElementById("total").innerText = ``;
+    document.getElementById("digitalScorecard").innerText = ``;
     if(file) {
         uploadImage(file)
         getOcr(file,players,condition,timestamp)
@@ -143,7 +143,7 @@ function getOcr(file,players,condition,timestamp){
                 `;
             }).join(''); // Join all player entries into a single string
             
-            document.getElementById("total").innerHTML = `
+            document.getElementById("digitalScorecard").innerHTML = `
                 <h4>Response Summary</h4>
                 <p><strong>Message:</strong> ${data.response_payload.body.message}</p>
                 
@@ -163,12 +163,44 @@ function getOcr(file,players,condition,timestamp){
                     ${item.ParentId ? `<strong>Parent Id:</strong> ${item.ParentId} <br>` : ""}
                 </p>`;
             });*/
-            document.getElementById("total").innerHTML = data.result.html_table;
+            document.getElementById("digitalScorecard").innerHTML = data.result.html_table;
+           
+            // If the user edits a td cell, make the text color spring green
+            document.querySelectorAll("td[contenteditable='true']").forEach(td => {
+                td.addEventListener("input", function () {
+                    this.style.color = "springgreen";
+                });
+            });
+
+            // Removes scan button
+            document.getElementById('scan-btn').style.display = 'none';
+
+            // Adds save button
+            document.getElementById("saveBtnDiv").innerHTML = '<button id="save-stats-btn" type="button" class="btn btn-primary my-2"><i class="fa-solid fa-floppy-disk"></i> Save and Get Stats </button>';
+
+            // Add event listener to the new Save button
+            document.getElementById("save-stats-btn").addEventListener("click", function () {
+                // Remove the style attribute from all editable td cells
+                document.querySelectorAll("td[contenteditable='true']").forEach(td => {
+                    td.removeAttribute("style");
+                });
+
+                // Remove the style attribute from all <th> elements
+                document.querySelectorAll("th").forEach(th => {
+                    th.removeAttribute("style");
+                });
+
+                // Remove any <tr> containing a <td> with colspan="19"
+                document.querySelectorAll("td[colspan='19']").forEach(td => {
+                    td.parentElement.remove(); // Remove the <tr> containing this <td>
+                });
+            });
+
 
         })
         .catch(error => {
-            console.error("Error getting cardCaddy-ocr:", error);
-            document.getElementById("total").innerText = "Error from response cardCaddy-ocr";
+            console.error("Error getting cardCaddy-ocr or Script in Fetch:", error);
+            document.getElementById("digitalScorecard").innerText = "Error from response cardCaddy-ocr or Script in Fetch";
             // Hide the spinner in case of error
             spinner.style.display = 'none';
         });
@@ -186,7 +218,7 @@ function showSuccessMessage() {
         overlay.style.display = 'none'; // Hide overlay
     }, 800);
 }
-
+// Add Todays date by default
 document.addEventListener("DOMContentLoaded", function () {
     const dateInput = document.getElementById("dateSelector");
     const today = new Date().toISOString().split("T")[0]; // Get today's date in YYYY-MM-DD format

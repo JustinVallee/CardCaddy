@@ -375,7 +375,7 @@ def build_html_table(clean_matrix, confidence_matrix, found_players, suggested_m
         if row_index == 0: 
             tr_style = "--bs-table-bg: #28a745; !important"  # Set green background for HOLE row
         elif row_index == 1:
-            tr_style = "--bs-table-bg: #0d6efd; !important"   # Set blue background for PAR row
+            tr_style = "--bs-table-bg: #0d6efd; !important"  # Set blue background for PAR row
         else: tr_style = ''
         html += f'<tr style="{tr_style}">'
         for i, cell_text in enumerate(row):
@@ -388,7 +388,7 @@ def build_html_table(clean_matrix, confidence_matrix, found_players, suggested_m
                     html += f"<th><strong>{cell_text.upper()}</strong</th>"
                 else:
                     html += f"<th contenteditable='true' style='{cell_style}'><strong>{cell_text.capitalize()}</strong</th>"
-            else: # Other cells make td
+            else:  # Other cells make td
                 contenteditable = 'contenteditable="true"' if not row_index==0 else ''
                 html += f"<td {contenteditable} style='{cell_style}'>{cell_text}</td>"
 
@@ -417,7 +417,7 @@ def build_html_table(clean_matrix, confidence_matrix, found_players, suggested_m
             suggestions_message = f"<tr><td colspan='{colspan}' style='color: orange;'>OCR found: {', '.join(suggestions)}</td></tr>"
             html += suggestions_message
 
-    html += "</tbody></table></div>"
+    html += """</tbody></table></div>"""
     return html
 
 def ocr(bucket_name, filename, players_list):

@@ -43,16 +43,36 @@
                                 <div class="row justify-content-center">
                                     <!-- File input to select an image -->
                                     <div class="col-md-6 col-sm-8 col-10 mb-3">
-                                        <label for="imageInput" class="form-label">Upload Golf Scorecard <span class="madatory-asterix">*</span></label>
+                                        <label for="imageInput" class="form-label">Upload Golf Scorecard <span class="mandatory-asterix">*</span></label>
                                         <input type="file" id="imageInput" class="form-control" accept="image/*" required>
                                     </div>
                                     <!-- Select players -->
                                     <div class="col-md-6 col-sm-8 col-10 mb-3">
-                                        <label for="playerInput" class="form-label">Select Players <span class="madatory-asterix">*</span></label>
+                                        <label for="playerInput" class="form-label">Select Players <span class="mandatory-asterix">*</span></label>
                                         <select data-placeholder="Select players..." id="playerInput" size="2" class="form-select chosen-select" multiple>
                                             <!-- Options will be populated by JavaScript -->
                                         </select>
                                         <input type="text" id="newPlayerInput" class="form-control mt-1" placeholder="Add New Players">
+                                    </div>
+                                    <!-- Golf Course selection -->
+                                    <div class="col-md-6 col-sm-8 col-10 mb-3">
+                                        <label for="golfCourseInput" class="form-label">Select Golf Course <span class="mandatory-asterix">*</span></label>
+                                        <select id="golfCourseInput" class="form-select" required>
+                                            <option value="" disabled selected>Select a golf course...</option>
+                                            <option value="Riverbed">Riverbed</option>
+                                            <option value="Kingsway">Kingsway</option>
+                                            <option value="Cartier">Cartier</option>
+                                            <option value="Madawaska">Madawaska</option>
+                                            <option value="LacDargile">Lac D'argile</option>
+                                            <option value="Richmond">Richmond</option>
+                                            <option value="FalconRidge">Falcon Ridge</option>
+                                            <option value="LacSimon">Lac Simon</option>
+                                            <option value="Tecumseh">Tecumseh</option>
+                                            <option value="Touraine">Touraine</option>
+                                            <option value="Sandbanks">Sandbanks</option>
+                                            <option value="US">US</option>
+                                            <option value="Other">Other</option>
+                                        </select>                                    
                                     </div>
                                     <!-- Date selector -->
                                     <div class="col-md-6 col-sm-8 col-10 mb-3">
@@ -67,12 +87,13 @@
                                 </div>
                             </div>
                             <!-- AI Scan Button -->
-                            <button type="submit" class="btn btn-primary my-2">
-                            <i class="fas fa-brain"></i> Scan with AI and Get Total
+                            <button type="submit" id="scan-btn" class="btn btn-dark my-2">
+                                <i class="fa-solid fa-robot"></i>&ensp;Scan with AI
                             </button>
                         </form>
                         <p><span id="loading-spinner" class="spinner"></span></p>
-                        <div id="total"></div>
+                        <div id="digitalScorecard"></div>
+                        <div id="saveBtnDiv"></div>
                         <!-- Overlay and message -->
                         <div class="overlay" id="overlay">
                             <div class="message-box" id="messageBox">
