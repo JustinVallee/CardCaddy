@@ -387,10 +387,12 @@ def build_html_table(clean_matrix, confidence_matrix, found_players, suggested_m
                 if cell_text in ['Hole', 'Par']:
                     html += f"<th><strong>{cell_text.upper()}</strong</th>"
                 else:
-                    html += f"<th contenteditable='true' style='{cell_style}'><strong>{cell_text.capitalize()}</strong</th>"
+                    html += f"<th style='{cell_style}'><strong>{cell_text.capitalize()}</strong</th>"
             else:  # Other cells make td
-                contenteditable = 'contenteditable="true"' if not row_index==0 else ''
-                html += f"<td {contenteditable} style='{cell_style}'>{cell_text}</td>"
+                if row_index==0: # first row (Hole row)
+                    html += f"<td style='{cell_style}'>{cell_text}</td>"
+                else:
+                    html += f"<td style='{cell_style}'><input inputmode='numeric' value='{cell_text}' maxlength='2' placeholder=' ' required/></td>"
 
         html += "</tr>"
 
@@ -531,15 +533,8 @@ def lambda_handler(event, context):
         if not bucket or not filename or not players_list:
             raise ValueError("Missing 'bucket' or 'filename' in the path parameters. And must have at leat one player")
 
-        # !!!!!! Call the text detection funciton !!!!!!
+        # Call the text detection funciton
         result = ocr(bucket, filename, players_list)
-
-        # Save to dynamo
-        '''response_payload = call_other_lambda('cardCaddy-upload-dynamodb',{
-            'timestamp': timestamp,
-            'condition': condition,
-            'round_scores_obj': round_scores_obj
-        })'''
 
         # Return success with CORS headers
         return {
@@ -547,7 +542,6 @@ def lambda_handler(event, context):
             'body': json.dumps({
                 'bucket': bucket,
                 'filename': filename,
-                #'response_payload': response_payload
                 'result': result
             }),
             'headers': { # CORS headers

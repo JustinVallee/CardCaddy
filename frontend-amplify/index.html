@@ -30,15 +30,15 @@
 <body>
     <div class="container-fluid">
         <div class="row">
-            <div class="col-12 px-4 py-2 my-5 text-center">
+            <div class="col-12 px-4 py-2 my-4 text-center">
                 <section>
                     <h1 class="display-5 fw-bold">Welcome to CardCaddy</h1>
-                    <div class="col-lg-6 col-md-8 col-sm-10 mx-auto fw-bold">
+                    <div class="col-lg-6 col-md-8 mx-auto fw-bold">
                         <p class="lead mb-3">
-                            CardCaddy is a golf score tracking app that scans and digitizes golf scorecards. Capture scores, calculate averages, and gain insights into your game effortlessly.
+                            CardCaddy scans and digitizes golf scorecards, tracking scores, averages, and game insights effortlessly.
                         </p>
                         <!-- Form to handle validation -->
-                        <form onsubmit="submitForm(event)">
+                        <form onsubmit="submitFormOCR(event)">
                             <div class="container">
                                 <div class="row justify-content-center">
                                     <!-- File input to select an image -->
@@ -92,8 +92,10 @@
                             </button>
                         </form>
                         <p><span id="loading-spinner" class="spinner"></span></p>
-                        <div id="digitalScorecard"></div>
-                        <div id="saveBtnDiv"></div>
+                        <form id="saveForm" onsubmit="saveForm(event)">
+                            <div id="digitalScorecard"></div>
+                            <div id="saveBtnDiv"></div>
+                        </form>
                         <!-- Overlay and message -->
                         <div class="overlay" id="overlay">
                             <div class="message-box" id="messageBox">

@@ -11,10 +11,31 @@ html, body {
     /* background: linear-gradient(to right, lightblue, lightgreen); */
     /*background-color: rgb(176, 222, 204);*/
     /* Add padding for safe areas iphone bezels */
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
+    /*padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);*/
 }
 
+/* ScoreCard input buttons */
+input[inputmode="numeric"] {
+    border: none;
+    background: none;
+    width: 2ch; /* Fixed space for two digits */
+    text-align: center;
+    font-size: inherit;
+    padding: 0;
+    margin: 0;
+    box-shadow: none;
+    display: inline-block;
+    color: inherit;
+}
+
+input[inputmode="numeric"]:focus {
+outline: none;              /* Remove focus outline */
+}
+
+td{
+    padding: .5rem .3rem !important;
+}
 
 
 /* Customize button to stand out */
