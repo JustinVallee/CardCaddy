@@ -180,16 +180,16 @@ function getOcr(file,players,condition,timestamp){
                     if (th && th.innerText.trim().toUpperCase() === "PAR") {
                         // Set the limit to 5 for "PAR"
                         if (this.value > 5 || this.value < 3) {
-                            this.setCustomValidity("PAR value must be 3, 4 or 5.");
+                            this.setCustomValidity("PAR must be 3, 4 or 5");
                         } else {
                             this.setCustomValidity(""); // Clear the custom validity message
                         }
                     } else {
                         // For other cases, set the limit to 15
                         if (this.value > 15) {
-                            this.setCustomValidity("The value cannot exceed 15.");
+                            this.setCustomValidity("Max value is 15");
                         } else if (this.value < 1) {
-                            this.setCustomValidity("The value must be at least 1.");
+                            this.setCustomValidity("Min value is 1");
                         } else {
                             this.setCustomValidity(""); // Clear the custom validity message
                         }
