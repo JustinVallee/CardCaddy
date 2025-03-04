@@ -22,7 +22,7 @@ function loadPlayers() {
 // Load players on page load
 window.onload = loadPlayers;
 
-function submitForm(event) {
+function submitFormOCR(event) {
     event.preventDefault(); // Prevent the form from submitting normally (refreshes the page)
 
     // Get the values of playerInput and newPlayerInput
@@ -35,10 +35,10 @@ function submitForm(event) {
         return; // Stop the form from submitting
     }
    
-    main(); // If validation passes, call the main function
+    mainOCR(); // If validation passes, call the main function
 }
 
-function main(){
+function mainOCR(){
     // Get values from the input fields
     const players = addNewPlayersToSelected();
     const condition = document.getElementById('conditionInput').value;
@@ -50,7 +50,7 @@ function main(){
 
     const fileInput = document.getElementById("imageInput");
     const file = fileInput.files[0];
-    document.getElementById("total").innerText = ``;
+    document.getElementById("digitalScorecard").innerText = ``;
     if(file) {
         uploadImage(file)
         getOcr(file,players,condition,timestamp)
@@ -143,7 +143,7 @@ function getOcr(file,players,condition,timestamp){
                 `;
             }).join(''); // Join all player entries into a single string
             
-            document.getElementById("total").innerHTML = `
+            document.getElementById("digitalScorecard").innerHTML = `
                 <h4>Response Summary</h4>
                 <p><strong>Message:</strong> ${data.response_payload.body.message}</p>
                 
@@ -163,12 +163,61 @@ function getOcr(file,players,condition,timestamp){
                     ${item.ParentId ? `<strong>Parent Id:</strong> ${item.ParentId} <br>` : ""}
                 </p>`;
             });*/
-            document.getElementById("total").innerHTML = data.result.html_table;
+            document.getElementById("digitalScorecard").innerHTML = data.result.html_table;
+           
+            // If the user edits a td cell, make the text color spring green
+            document.querySelectorAll("td").forEach(td => {
+                td.addEventListener("input", function () {
+                    this.style.color = "springgreen";
+                });
+            });
+
+            document.querySelectorAll("#digitalScorecard input").forEach(input => {
+                input.addEventListener("input", function () {
+                    const th = this.closest('tr').querySelector('th');  // Find the th in the same tr
+            
+                    // Check if the 'th' contains the text "PAR"
+                    if (th && th.innerText.trim().toUpperCase() === "PAR") {
+                        // Ensure value is a number
+                        if (isNaN(this.value)) {
+                            this.setCustomValidity("Enter a valid number");
+                        } else if (this.value > 5 || this.value < 3) {
+                            this.setCustomValidity("PAR must be 3, 4 or 5");
+                        } else {
+                            this.setCustomValidity(""); // Clear the custom validity message
+                        }
+                    } else {
+                        // Ensure value is a number
+                        if (isNaN(this.value)) {
+                            this.setCustomValidity("Enter a valid number");
+                        } else if (this.value > 15) {
+                            this.setCustomValidity("Max value is 15");
+                        } else if (this.value < 1) {
+                            this.setCustomValidity("Min value is 1");
+                        } else {
+                            this.setCustomValidity(""); // Clear the custom validity message
+                        }
+                    }
+
+
+            
+                    // Ensure the form won't submit if invalid
+                    const form = document.querySelector("form");
+                    form.reportValidity(); // Triggers validation, preventing form submission if invalid
+                });
+            });
+            
+
+            // Removes scan button
+            document.getElementById('scan-btn').style.display = 'none';
+
+            // Adds save button
+            document.getElementById("saveBtnDiv").innerHTML = '<button id="save-stats-btn" type="submit" class="btn btn-primary my-2"><i class="fa-solid fa-floppy-disk"></i> Save and Get Stats </button>';
 
         })
         .catch(error => {
-            console.error("Error getting cardCaddy-ocr:", error);
-            document.getElementById("total").innerText = "Error from response cardCaddy-ocr";
+            console.error("Error getting cardCaddy-ocr or Script in Fetch:", error);
+            document.getElementById("digitalScorecard").innerText = "Error from response cardCaddy-ocr or Script in Fetch";
             // Hide the spinner in case of error
             spinner.style.display = 'none';
         });
@@ -187,8 +236,46 @@ function showSuccessMessage() {
     }, 800);
 }
 
+// Add Todays date by default
 document.addEventListener("DOMContentLoaded", function () {
     const dateInput = document.getElementById("dateSelector");
-    const today = new Date().toISOString().split("T")[0]; // Get today's date in YYYY-MM-DD format
-    dateInput.value = today;
+    const today = new Date();
+    
+    // Format to YYYY-MM-DD in local time (EST/EDT)
+    const localDate = today.getFullYear() + '-' +
+        String(today.getMonth() + 1).padStart(2, '0') + '-' +
+        String(today.getDate()).padStart(2, '0');
+
+    dateInput.value = localDate;
 });
+
+function saveForm(event){
+    event.preventDefault(); // Prevent the form from submitting normally (refreshes the page)
+    
+    console.log('Validation...')
+    console.log('Saving...')
+
+    try {
+        // Remove the style attribute from al td cells
+    document.querySelectorAll("td").forEach(td => {
+        td.removeAttribute("style");
+    });
+    // Remove the style attribute from all <th> elements
+    document.querySelectorAll("th").forEach(th => {
+        th.removeAttribute("style");
+    });
+    // Remove any <tr> containing a <td> with colspan="19"
+    document.querySelectorAll("td[colspan='19']").forEach(td => {
+        td.parentElement.remove(); // Remove the <tr> containing this <td>
+    });
+
+    alert('less goooo, peak!');
+
+    } catch (error) {
+        console.error("An error occurred:", error.message); // Handle the error
+
+    }
+}
+
+
+
