@@ -178,15 +178,19 @@ function getOcr(file,players,condition,timestamp){
             
                     // Check if the 'th' contains the text "PAR"
                     if (th && th.innerText.trim().toUpperCase() === "PAR") {
-                        // Set the limit to 5 for "PAR"
-                        if (this.value > 5 || this.value < 3) {
+                        // Ensure value is a number
+                        if (isNaN(this.value)) {
+                            this.setCustomValidity("Enter a valid number");
+                        } else if (this.value > 5 || this.value < 3) {
                             this.setCustomValidity("PAR must be 3, 4 or 5");
                         } else {
                             this.setCustomValidity(""); // Clear the custom validity message
                         }
                     } else {
-                        // For other cases, set the limit to 15
-                        if (this.value > 15) {
+                        // Ensure value is a number
+                        if (isNaN(this.value)) {
+                            this.setCustomValidity("Enter a valid number");
+                        } else if (this.value > 15) {
                             this.setCustomValidity("Max value is 15");
                         } else if (this.value < 1) {
                             this.setCustomValidity("Min value is 1");
@@ -194,6 +198,7 @@ function getOcr(file,players,condition,timestamp){
                             this.setCustomValidity(""); // Clear the custom validity message
                         }
                     }
+
 
             
                     // Ensure the form won't submit if invalid
