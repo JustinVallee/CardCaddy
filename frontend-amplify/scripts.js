@@ -124,47 +124,21 @@ function getOcr(file,players,condition,timestamp){
         .then(data => {
             console.log("CardCaddy-ocr response:", data);
 
-            // Directly access the 'textDetected' from the response
-            //const total = data.textDetected || "No text detected"; // Fallback to "No text detected" if it's empty
-
             // Hide the spinner once the response is processed
             spinner.style.display = 'none';
             showSuccessMessage()
-            
-            /*let playersHTML = data.response_payload.body.round_data.players.map(player => {
-                return `
-                    <p><strong>Player ID:</strong> ${player.player_id}</p>
-                    <p><strong>Name:</strong> ${player.name}</p>
-                    <p><strong>Total Score:</strong> ${player.total_score}</p>
-                    <p><strong>Handicap:</strong> ${player.handicap}</p>
-                    <p><strong>Par Averages:</strong> ${JSON.stringify(player.par_avgs, null, 2)}</p>
-                    <p><strong>Scores:</strong> ${player.scores.join(', ')}</p> <!-- Display individual scores -->
-                    <hr> <!-- Adding a separator between players -->
-                `;
-            }).join(''); // Join all player entries into a single string
-            
-            document.getElementById("digitalScorecard").innerHTML = `
-                <h4>Response Summary</h4>
-                <p><strong>Message:</strong> ${data.response_payload.body.message}</p>
-                
-                <h5>Players</h5>
-                ${playersHTML}
-                
-                <p><strong>Round ID:</strong> ${data.response_payload.body.round_data.round_id}</p>
-                <p><strong>Condition:</strong> ${data.response_payload.body.round_data.condition}</p>
-                <p><strong>Timestamp:</strong> ${data.response_payload.body.round_data.timestamp}</p>
-            `;*/
-            /*let htmlContent = "<h4>Response Summary</h4>";
-            data.forEach(item => {
-                htmlContent += `<p>
-                    <strong>Detected Text:</strong> ${item.DetectedText} <br>
-                    <strong>Confidence:</strong> ${item.Confidence.toFixed(2)}% <br>
-                    <strong>Id:</strong> ${item.Id} <br>
-                    ${item.ParentId ? `<strong>Parent Id:</strong> ${item.ParentId} <br>` : ""}
-                </p>`;
-            });*/
-            document.getElementById("digitalScorecard").innerHTML = data.result.html_table;
+     
+            // Create the h2 to the digitalScorecard container
+            const heading = document.createElement('h2');
+            heading.textContent = 'Digital Scorecard';
+            document.getElementById('digitalScorecard').appendChild(heading);
+
+            // Set the innerHTML of the container to the HTML table from data.result.html_table
+            document.getElementById('digitalScorecard').innerHTML += data.result.html_table;
            
+            // Validate the table inputs
+            validateTableInputs();
+
             // If the user edits a td cell, make the text color spring green
             document.querySelectorAll("td").forEach(td => {
                 td.addEventListener("input", function () {
@@ -199,8 +173,6 @@ function getOcr(file,players,condition,timestamp){
                         }
                     }
 
-
-            
                     // Ensure the form won't submit if invalid
                     const form = document.querySelector("form");
                     form.reportValidity(); // Triggers validation, preventing form submission if invalid
@@ -212,7 +184,7 @@ function getOcr(file,players,condition,timestamp){
             document.getElementById('scan-btn').style.display = 'none';
 
             // Adds save button
-            document.getElementById("saveBtnDiv").innerHTML = '<button id="save-stats-btn" type="submit" class="btn btn-primary my-2"><i class="fa-solid fa-floppy-disk"></i> Save and Get Stats </button>';
+            document.getElementById("saveBtnDiv").innerHTML = '<button id="save-stats-btn" type="submit" class="btn btn-primary my-2"><i class="fa-solid fa-floppy-disk"></i> Save and Get Round Stats</button>';
 
         })
         .catch(error => {
@@ -249,14 +221,59 @@ document.addEventListener("DOMContentLoaded", function () {
     dateInput.value = localDate;
 });
 
+function validateTableInputs() {
+    const inputs = document.querySelectorAll("#digitalScorecard input"); // Select all inputs in the table
+    let firstInvalidInput = null; // Track the first invalid input
+
+    inputs.forEach(input => {
+        const th = input.closest('tr').querySelector('th'); // Find the corresponding <th> in the same row
+
+        // Check if the 'th' contains the text "PAR"
+        if (th && th.innerText.trim().toUpperCase() === "PAR") {
+            // Validate PAR inputs (must be 3, 4, or 5)
+            if (isNaN(input.value)) {
+                input.setCustomValidity("Enter a valid number");
+            } else if (input.value > 5 || input.value < 3) {
+                input.setCustomValidity("PAR must be 3, 4, or 5");
+            } else {
+                input.setCustomValidity(""); // Clear the custom validity message
+            }
+        } else {
+            // Validate score inputs (must be between 1 and 15)
+            if (isNaN(input.value)) {
+                input.setCustomValidity("Enter a valid number");
+            } else if (input.value > 15) {
+                input.setCustomValidity("Max value is 15");
+            } else if (input.value < 1) {
+                input.setCustomValidity("Min value is 1");
+            } else {
+                input.setCustomValidity(""); // Clear the custom validity message
+            }
+        }
+
+        // If the input is invalid and we haven't found the first invalid input yet
+        if (input.checkValidity() === false && !firstInvalidInput) {
+            firstInvalidInput = input; // Track the first invalid input
+        }
+    });
+
+    // Focus on the first invalid input (if any)
+    if (firstInvalidInput) {
+        firstInvalidInput.focus(); // Move focus to the first invalid input
+        firstInvalidInput.reportValidity(); // Trigger the error message
+    }
+
+    // Return true if all inputs are valid, false otherwise
+    return firstInvalidInput === null;
+}
+
 function saveForm(event){
     event.preventDefault(); // Prevent the form from submitting normally (refreshes the page)
     
-    console.log('Validation...')
-    console.log('Saving...')
+    console.log('Validation if needed...')
 
     try {
-        // Remove the style attribute from al td cells
+    // Remove the style attribute from al td cells
     document.querySelectorAll("td").forEach(td => {
         td.removeAttribute("style");
     });
@@ -268,14 +285,225 @@ function saveForm(event){
     document.querySelectorAll("td[colspan='19']").forEach(td => {
         td.parentElement.remove(); // Remove the <tr> containing this <td>
     });
+    // Call the function to process the scorecard
+    const round_scores_obj = processScorecard();
 
-    alert('less goooo, peak!');
+    // Data to send in the POST request
+    const postData = {
+        round_scores_obj: round_scores_obj, 
+        golf_course: document.getElementById('golfCourseInput').value,
+        date: document.getElementById('dateSelector').value,
+        condition: document.getElementById('conditionInput').value,
+    };
+    // Disable the submit button to prevent duplicate submissions
+    const submitButton = document.getElementById('save-stats-btn');
+    submitButton.disabled = true;
+    submitButton.textContent = "Saving..."; // Update button text to indicate progress
+    // cardCaddy upload-dynamodb API call
+    fetch("https://dyg6cf7mje.execute-api.us-east-2.amazonaws.com/dev", {
+        method: 'POST', // Specify the request method
+        headers: {
+            'Content-Type': 'application/json' // Set the content type to JSON
+        },
+        body: JSON.stringify(postData) // Convert the data to JSON format
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return response.json(); // Parse the JSON response
+    })
+    .then(data => {
+        console.log('Success Response from upload-dynamo:', data);
+
+        // Remove the submit button after successful submission
+        submitButton.remove();
+        // Show the round stats
+        showStats(data.body.round_data);
+
+        // Create a button to refresh the page
+        const refreshButton = document.createElement('button');
+        refreshButton.type = 'button';
+        refreshButton.className = 'btn btn-warning';
+        refreshButton.textContent = 'Scan another card';
+        refreshButton.addEventListener('click', () => {
+            location.reload(); // Refreshes the page
+        });
+        document.getElementById('roundStats').appendChild(refreshButton);
+        showSuccessMessage()
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
 
     } catch (error) {
         console.error("An error occurred:", error.message); // Handle the error
 
     }
+    
 }
 
+function processScorecard() {
+    const table = document.querySelector('#digitalScorecard table');
+    const rows = table.querySelectorAll('tr');
+    const round_scores_obj = {
+        hole_pars: [],
+        par: 0,
+        players: []
+    };
 
+    // Extract hole pars and calculate total par
+    const parRow = rows[1].querySelectorAll('td input');
+    parRow.forEach(input => {
+        const par = parseInt(input.value, 10);
+        round_scores_obj.hole_pars.push(par);
+        round_scores_obj.par += par;
+    });
 
+    // Add par total to the PAR row
+    const parTotalCell = document.createElement('td');
+    parTotalCell.textContent = round_scores_obj.par;
+    rows[1].appendChild(parTotalCell);
+
+    // Get the playerSelect dropdown to check for player IDs
+    const playerSelect = document.getElementById('playerInput');
+    const playerOptions = Array.from(playerSelect.options);
+
+    // Process each player's row
+    for (let i = 2; i < rows.length; i++) {
+        const playerRow = rows[i];
+        const playerName = playerRow.querySelector('th').textContent.trim();
+        const inputs = playerRow.querySelectorAll('td input');
+        const scores = [];
+        let total = 0;
+
+        inputs.forEach(input => {
+            const score = input.value ? parseInt(input.value, 10) : 0;
+            scores.push(score);
+            total += score;
+        });
+
+        // Calculate par averages
+        const parAverages = { 3: 0, 4: 0, 5: 0 };
+        const parCounts = { 3: 0, 4: 0, 5: 0 };
+
+        scores.forEach((score, index) => {
+            const par = round_scores_obj.hole_pars[index];
+            if (par === 3 || par === 4 || par === 5) {
+                parAverages[par] += score;
+                parCounts[par]++;
+            }
+        });
+
+        for (const par in parAverages) {
+            if (parCounts[par] > 0) {
+                parAverages[par] = (parAverages[par] / parCounts[par]).toFixed(2);
+            } else {
+                parAverages[par] = 0;
+            }
+        }
+
+        // Check if the player name exists in the playerSelect dropdown
+        const playerOption = playerOptions.find(option => option.text.toLowerCase() === playerName.toLowerCase());
+        const playerId = playerOption ? playerOption.value : playerName;
+
+        handicap = total - round_scores_obj.par
+
+        // Add player data to round_scores_obj
+        round_scores_obj.players.push({
+            player_id: playerId, // Use player ID if available, otherwise use the name
+            scores: scores,
+            total_score: total,
+            handicap: handicap,
+            par_avgs: parAverages
+        });
+
+        // Add total to the end of the player's row
+        const totalCell = document.createElement('td');
+        totalCell.textContent = total;
+        playerRow.appendChild(totalCell);
+    }
+
+    // Add total to the first row (Hole)
+    const totalHeader = document.createElement('th');
+    totalHeader.textContent = 'Total';
+    rows[0].appendChild(totalHeader);
+
+    console.log(round_scores_obj);
+    return round_scores_obj;
+}
+
+function showStats(round_data) {
+    const form = document.getElementById('inputForm');
+    if (form) {
+        form.remove();
+    }
+    const roundStatsDiv = document.getElementById('roundStats');    // Get the existing div for round stats
+
+    const heading = document.createElement('h2');    // Add an h2 heading
+    heading.textContent = 'Round Stats';
+    roundStatsDiv.appendChild(heading);
+
+     // Add a small text with golf course, date, and condition
+    const detailsText = document.createElement('p');
+    detailsText.textContent = `Golf Course: ${round_data.golf_course}, Date: ${round_data.date}, Condition: ${round_data.condition}`;
+    detailsText.style.fontSize = '0.8em'; // Make the text smaller
+    roundStatsDiv.appendChild(detailsText);
+
+    // Create a table for the stats
+    const statsTable = document.createElement('table');
+    statsTable.className = 'table table-bordered table-dark table-sm'; // Add the desired classes
+    const tableBody = document.createElement('tbody');
+
+    // Create the table header
+    const tableHeader = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+    headerRow.style = '--bs-table-bg: #28a745; !important"'
+    const headers = ['Player', 'Total Score', 'Handicap', 'Par 3 Avg', 'Par 4 Avg', 'Par 5 Avg'];
+    headers.forEach(headerText => {
+        const th = document.createElement('th');
+        th.textContent = headerText;
+        headerRow.appendChild(th);
+    });
+    tableHeader.appendChild(headerRow);
+    statsTable.appendChild(tableHeader);
+
+    // Create the table body
+    round_data.players.forEach(player => {
+        const row = document.createElement('tr');
+
+        // Player Name
+        const playerNameCell = document.createElement('td');
+        playerNameCell.textContent = player.name;
+        row.appendChild(playerNameCell);
+
+        // Total Score
+        const totalScoreCell = document.createElement('td');
+        totalScoreCell.textContent = player.total_score;
+        row.appendChild(totalScoreCell);
+
+        // Handicap
+        const handicapCell = document.createElement('td');
+        handicapCell.textContent = player.handicap;
+        row.appendChild(handicapCell);
+
+        // Par Averages
+        const par3AvgCell = document.createElement('td');
+        par3AvgCell.textContent = player.par_avgs['3'];
+        row.appendChild(par3AvgCell);
+
+        const par4AvgCell = document.createElement('td');
+        par4AvgCell.textContent = player.par_avgs['4'];
+        row.appendChild(par4AvgCell);
+
+        const par5AvgCell = document.createElement('td');
+        par5AvgCell.textContent = player.par_avgs['5'];
+        row.appendChild(par5AvgCell);
+
+        tableBody.appendChild(row);
+    });
+    statsTable.appendChild(tableBody);
+
+    // Add the table to the roundStats div
+    roundStatsDiv.appendChild(statsTable);
+}
