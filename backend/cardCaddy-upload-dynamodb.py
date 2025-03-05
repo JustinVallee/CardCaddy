@@ -212,7 +212,7 @@ def get_all_values_of_attribute_round(player_id, attribute):
                     print(f"Attribute {attribute} not found for player {player_id} in round {round_id}")  # Debugging
                 break  # Stop searching for this player in this round
 
-    print(f"All values for {attribute}: {all_values_asked}")  # Debugging
+    #print(f"All values for {attribute}: {all_values_asked}")  # Debugging
     return all_values_asked
 
 def calculate_avg_score(player_id, current_round_score):
