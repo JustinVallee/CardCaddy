@@ -38,7 +38,7 @@
                             CardCaddy scans and digitizes golf scorecards, tracking scores, averages, and game insights effortlessly.
                         </p>
                         <!-- Form to handle validation -->
-                        <form onsubmit="submitFormOCR(event)">
+                        <form id="inputForm" onsubmit="submitFormOCR(event)">
                             <div class="container">
                                 <div class="row justify-content-center">
                                     <!-- File input to select an image -->
@@ -59,7 +59,7 @@
                                         <label for="golfCourseInput" class="form-label">Select Golf Course <span class="mandatory-asterix">*</span></label>
                                         <select id="golfCourseInput" class="form-select" required>
                                             <option value="" disabled selected>Select a golf course...</option>
-                                            <option value="Riverbed">Riverbed</option>
+                                            <option value="Riverbed">Riverbend</option>
                                             <option value="Kingsway">Kingsway</option>
                                             <option value="Cartier">Cartier</option>
                                             <option value="Madawaska">Madawaska</option>
@@ -96,6 +96,12 @@
                             <div id="digitalScorecard"></div>
                             <div id="saveBtnDiv"></div>
                         </form>
+                        <div id="Stats">
+                            <div id="roundStats" class="table-responsive">
+
+                            </div>
+
+                        </div>
                         <!-- Overlay and message -->
                         <div class="overlay" id="overlay">
                             <div class="message-box" id="messageBox">
