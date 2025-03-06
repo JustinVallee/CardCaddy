@@ -19,7 +19,7 @@
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMenu">
         <span class="navbar-toggler-icon"></span>
       </button>
-      <a class="navbar-brand" href="#">CardCaddy Stats</a>
+      <a class="navbar-brand">CardCaddy Stats</a>
       <div class="collapse navbar-collapse" id="navbarMenu">
         <ul class="navbar-nav">
           <li class="nav-item">
@@ -104,7 +104,7 @@
               <td>${player.name}</td>
               <td>${avgScore.toFixed(2)}</td>
               <td>${handicap.toFixed(2)}</td>
-              <td><a href="individual-stats.html?playerId=${playerId}" class="btn btn-sm btn-primary">View</a></td>
+              <td><a href="individual-stats.html?playerId=${playerId}&playerName=${player.name}" class="btn btn-sm btn-primary">View</a></td>
             `;
             statsTableBody.appendChild(statsRow);
 

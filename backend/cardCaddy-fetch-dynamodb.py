@@ -30,9 +30,13 @@ def lambda_handler(event, context):
             query = json.dumps(query, default=str)  # Dictionary converted to JSON string and default str because it has Decimals
         elif individual_all_stats:
             if playerId:
-                query = get_individual_all_stats(table, playerId) # table is round
+                try:
+                    query = get_individual_all_stats(table, playerId)  # table is "round"
+                    query = json.dumps(query, default=str)  # Dictionary converted to JSON string and default str because it has Decimals
+                except Exception as e:
+                    query = str(e)  
             else: 
-                query = "Need playerID"
+                query = "Need playerId"
 
         return {
             "statusCode": 200,
@@ -112,6 +116,7 @@ def get_player_rounds(playerID):
 def get_individual_all_stats(table, playerID):
     rounds_ids = get_player_rounds(playerID)  # Fetch all round IDs for the player
 
+    print("rounds ids", rounds_ids)
     rounds_info = []
     for round_id in rounds_ids:
         response = table.get_item(Key={'round_id': round_id})

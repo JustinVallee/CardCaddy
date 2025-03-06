@@ -23,7 +23,7 @@
                 aria-controls="navbarMenu" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
         </button>
-        <a class="navbar-brand" href="#">CardCaddy Stats</a>
+        <a class="navbar-brand">Individual Player Statistics</a>
         <div class="collapse navbar-collapse" id="navbarMenu">
         <ul class="navbar-nav">
             <li class="nav-item">
@@ -32,7 +32,6 @@
             <li class="nav-item">
             <a class="nav-link" href="stats.html">Back to Stats</a>
             </li>
-            <!-- Add more menu items as needed -->
         </ul>
         </div>
     </div>
@@ -40,17 +39,16 @@
 
   <!-- Main Content -->
   <div class="container mt-4">
-    <h2 class="mb-4">Individual Player Statistics</h2>
+    <h2 class="mb-4" id="playerNameStats"></h2>
     <!-- Dropdown to select statistic -->
     <div class="mb-3">
       <label for="statSelect" class="form-label">Select Statistic:</label>
       <select class="form-select" id="statSelect">
-        <option value="averageScore">Average Score</option>
+        <option value="totalScore">Total Score</option>
         <option value="handicap">Handicap</option>
-        <option value="avgPar3">Average Par 3</option>
-        <option value="avgPar4">Average Par 4</option>
-        <option value="avgPar5">Average Par 5</option>
-        <!-- Add more statistics as needed -->
+        <option value="parAvgs_3">Average Par 3</option>
+        <option value="parAvgs_4">Average Par 4</option>
+        <option value="parAvgs_5">Average Par 5</option>
       </select>
     </div>
     <!-- Chart Container -->
@@ -58,53 +56,125 @@
       <canvas id="statsChart"></canvas>
     </div>
   </div>
-    <!-- Bootstrap and dependencies for Bootstrap 5 -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-OERcA2EqjJCMA+/3y+gxIOqMEjwtxJY7qPCqsdltbNJuaOe923+mo//f6V8Qbsw3" crossorigin="anonymous"></script>
+  
+  <!-- Bootstrap and dependencies for Bootstrap 5 -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-OERcA2EqjJCMA+/3y+gxIOqMEjwtxJY7qPCqsdltbNJuaOe923+mo//f6V8Qbsw3" crossorigin="anonymous"></script>
+  
   <!-- Chart.js Initialization and Data Handling -->
   <script>
-    // Sample data for demonstration
-    const sampleData = {
-      averageScore: [85, 88, 90, 87, 86],
-      handicap: [10, 12, 11, 13, 12],
-      avgPar3: [3.2, 3.1, 3.3, 3.0, 3.1],
-      avgPar4: [4.5, 4.6, 4.4, 4.5, 4.6],
-      avgPar5: [5.1, 5.0, 5.2, 5.1, 5.0]
+    const getQueryParam = (param) => {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get(param);
     };
+    // Get the player name from the URL query string
+    const playerName = getQueryParam("playerName");
 
-    // Labels for the x-axis (e.g., round numbers or dates)
-    const labels = ['Round 1', 'Round 2', 'Round 3', 'Round 4', 'Round 5'];
+    // Set the text inside the <h2> tag
+    if (playerName) {
+        document.getElementById("playerNameStats").innerText = `${playerName}'s Statistics`;
+    } else {
+        document.getElementById("playerNameStats").innerText = "Player's Statistics"; // Default if no param is found
+    }
 
-    // Initialize Chart.js
-    const ctx = document.getElementById('statsChart').getContext('2d');
-    let statsChart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: 'Average Score',
-          data: sampleData.averageScore,
-          backgroundColor: 'rgba(54, 162, 235, 0.2)',
-          borderColor: 'rgba(54, 162, 235, 1)',
-          borderWidth: 1
-        }]
-      },
-      options: {
-        responsive: true,
-        scales: {
-          y: {
-            beginAtZero: false
+    // Fetch data dynamically based on player ID
+    function get_individual_all_stats(playerID) {
+      return fetch(`https://vopx2v8s2d.execute-api.us-east-2.amazonaws.com/dev/cardcaddy_round?get_individual_all_stats=True&playerId=${playerID}`)
+        .then(response => response.json())
+        .then(data => {
+          console.log(data)
+          return data;  // Return the fetched data
+        });
+    }
+
+    let statsChartInstance = null;  // Declare a global variable to store the current chart instance
+
+    // Function to update chart with selected statistic
+    function updateChart(selectedStat, roundsData) {
+      let data = [];
+      let label = '';
+      let color = {
+        'totalScore': 'rgba(54, 162, 235, 1)', // Blue
+        'handicap': 'rgba(255, 99, 132, 1)', // Red
+        'parAvgs_3': 'rgba(75, 192, 192, 1)', // Green
+        'parAvgs_4': 'rgba(153, 102, 255, 1)', // Purple
+        'parAvgs_5': 'rgba(255, 159, 64, 1)' // Orange
+      };
+
+      roundsData.forEach(round => {
+        if (selectedStat === 'totalScore') {
+          data.push(parseInt(round.player_stats.total_score)); // Total score for each round
+          label = 'Total Score';
+        } else if (selectedStat === 'handicap') {
+          data.push(parseInt(round.player_stats.handicap)); // Handicap for each round
+          label = 'Handicap';
+        } else if (selectedStat === 'parAvgs_3') {
+          data.push(parseFloat(round.player_stats.par_avgs['3'])); // Average Par 3
+          label = 'Average Par 3';
+        } else if (selectedStat === 'parAvgs_4') {
+          data.push(parseFloat(round.player_stats.par_avgs['4'])); // Average Par 4
+          label = 'Average Par 4';
+        } else if (selectedStat === 'parAvgs_5') {
+          data.push(parseFloat(round.player_stats.par_avgs['5'])); // Average Par 5
+          label = 'Average Par 5';
+        }
+      });
+
+      const ctx = document.getElementById('statsChart').getContext('2d');
+
+      // If there is an existing chart instance, destroy it
+      if (statsChartInstance) {
+        statsChartInstance.destroy();
+      }
+
+      const labels = roundsData.map(round => round.round_id + " (" + round.golf_course + ")");
+      console.log(labels)
+      // Create a new chart instance with the selected color
+      statsChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: label,
+            data: data,
+            backgroundColor: color[selectedStat].replace('1)', '0.1)'), // Set inside color of legend and dots (set the opacity lighter)
+            borderColor: color[selectedStat], // Set line color
+            borderWidth: 3 // Thicker line
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+              x: {
+                  ticks: {
+                    callback: function(value, index, values) {
+                    // Use the value from the label directly
+                    console.log(labels[index])
+                    return labels[index].split(" "); // Split by space and join by newline for multi-line labels
+                  }
+                  }
+              },
+              y: {
+                  beginAtZero: false
+              }
           }
         }
-      }
-    });
+      });
+    }
 
-    // Update chart data based on selected statistic
-    document.getElementById('statSelect').addEventListener('change', function() {
-      const selectedStat = this.value;
-      statsChart.data.datasets[0].data = sampleData[selectedStat];
-      statsChart.data.datasets[0].label = this.options[this.selectedIndex].text;
-      statsChart.update();
-    });
+    // Fetch data on page load
+    const playerID = getQueryParam("playerId");
+    if (playerID) {
+      get_individual_all_stats(playerID).then(data => {
+        updateChart('totalScore', data);  // Update chart initially with total score
+
+        // Event listener for stat selection change
+        document.getElementById('statSelect').addEventListener('change', function() {
+          const selectedStat = this.value;
+          updateChart(selectedStat, data); 
+        });
+      });
+    }
+
   </script>
 </body>
 </html>
