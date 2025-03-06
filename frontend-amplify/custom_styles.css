@@ -2,7 +2,6 @@ html, body {
     min-height: 100vh; /* Ensures the background covers the full viewport */
     margin: 0;
     padding: 0;
-    background-color: rgb(33 37 41) !important;
     background-image: url('background.jpg'); /* Replace with your image path */
     background-size: cover; /* Ensures the image covers the whole background */
     background-repeat: no-repeat; /* Prevents repeating */
@@ -13,6 +12,10 @@ html, body {
     /* Add padding for safe areas iphone bezels */
     /*padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);*/
+}
+
+body{
+    background-color: rgb(33 37 41);
 }
 
 /* ScoreCard input buttons */

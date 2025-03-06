@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Player Individual Stats</title>
+  <!-- Bootstrap CSS (v5) -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-Zenh87qX5JnK2Jl0vWa8Ck2rdkQ2Bzep5IDxbcnCeuOxjzrPF/et3URy9Bv1WTRi" crossorigin="anonymous">
+  <!-- Chart.js Library -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <nav class="navbar navbar-dark bg-dark">
+    <div class="container-fluid">
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                  <a class="nav-link" href="index.html">Scan Golf Card</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="stats.html">Back to Stats</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+  <!-- Main Content -->
+  <div class="container mt-4">
+    <h2 class="mb-4" id="playerNameStats"></h2>
+    <!-- Dropdown to select statistic -->
+    <div class="mb-3">
+      <label for="statSelect" class="form-label">Select Statistic:</label>
+      <select class="form-select" id="statSelect">
+        <option value="totalScore">Total Score</option>
+        <option value="handicap">Handicap</option>
+        <option value="parAvgs_3">Average Par 3</option>
+        <option value="parAvgs_4">Average Par 4</option>
+        <option value="parAvgs_5">Average Par 5</option>
+      </select>
+    </div>
+    <!-- Chart Container -->
+    <div class="chart-container">
+      <canvas id="statsChart"></canvas>
+    </div>
+  </div>
+  
+  <!-- Bootstrap and dependencies for Bootstrap 5 -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-OERcA2EqjJCMA+/3y+gxIOqMEjwtxJY7qPCqsdltbNJuaOe923+mo//f6V8Qbsw3" crossorigin="anonymous"></script>
+  
+  <!-- Chart.js Initialization and Data Handling -->
+  <script>
+    const getQueryParam = (param) => {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get(param);
+    };
+    // Get the player name from the URL query string
+    const playerName = getQueryParam("playerName");
+
+    // Set the text inside the <h2> tag
+    if (playerName) {
+        document.getElementById("playerNameStats").innerText = `${playerName}'s Statistics`;
+    } else {
+        document.getElementById("playerNameStats").innerText = "Player's Statistics"; // Default if no param is found
+    }
+
+    // Fetch data dynamically based on player ID
+    function get_individual_all_stats(playerID) {
+      return fetch(`https://vopx2v8s2d.execute-api.us-east-2.amazonaws.com/dev/cardcaddy_round?get_individual_all_stats=True&playerId=${playerID}`)
+        .then(response => response.json())
+        .then(data => {
+          console.log(data)
+          return data;  // Return the fetched data
+        });
+    }
+
+    let statsChartInstance = null;  // Declare a global variable to store the current chart instance
+
+    // Function to update chart with selected statistic
+    function updateChart(selectedStat, roundsData) {
+      let data = [];
+      let label = '';
+      let color = {
+        'totalScore': 'rgba(54, 162, 235, 1)', // Blue
+        'handicap': 'rgba(255, 99, 132, 1)', // Red
+        'parAvgs_3': 'rgba(75, 192, 192, 1)', // Green
+        'parAvgs_4': 'rgba(153, 102, 255, 1)', // Purple
+        'parAvgs_5': 'rgba(255, 159, 64, 1)' // Orange
+      };
+
+      roundsData.forEach(round => {
+        if (selectedStat === 'totalScore') {
+          data.push(parseInt(round.player_stats.total_score)); // Total score for each round
+          label = 'Total Score';
+        } else if (selectedStat === 'handicap') {
+          data.push(parseInt(round.player_stats.handicap)); // Handicap for each round
+          label = 'Handicap';
+        } else if (selectedStat === 'parAvgs_3') {
+          data.push(parseFloat(round.player_stats.par_avgs['3'])); // Average Par 3
+          label = 'Average Par 3';
+        } else if (selectedStat === 'parAvgs_4') {
+          data.push(parseFloat(round.player_stats.par_avgs['4'])); // Average Par 4
+          label = 'Average Par 4';
+        } else if (selectedStat === 'parAvgs_5') {
+          data.push(parseFloat(round.player_stats.par_avgs['5'])); // Average Par 5
+          label = 'Average Par 5';
+        }
+      });
+
+      const ctx = document.getElementById('statsChart').getContext('2d');
+
+      // If there is an existing chart instance, destroy it
+      if (statsChartInstance) {
+        statsChartInstance.destroy();
+      }
+
+      const labels = roundsData.map(round => round.round_id + " (" + round.golf_course + ")");
+      console.log(labels)
+      // Create a new chart instance with the selected color
+      statsChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: label,
+            data: data,
+            backgroundColor: color[selectedStat].replace('1)', '0.1)'), // Set inside color of legend and dots (set the opacity lighter)
+            borderColor: color[selectedStat], // Set line color
+            borderWidth: 3 // Thicker line
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+              x: {
+                  ticks: {
+                    callback: function(value, index, values) {
+                    // Use the value from the label directly
+                    console.log(labels[index])
+                    return labels[index].split(" "); // Split by space and join by newline for multi-line labels
+                  }
+                  }
+              },
+              y: {
+                  beginAtZero: false
+              }
+          }
+        }
+      });
+    }
+
+    // Fetch data on page load
+    const playerID = getQueryParam("playerId");
+    if (playerID) {
+      get_individual_all_stats(playerID).then(data => {
+        updateChart('totalScore', data);  // Update chart initially with total score
+
+        // Event listener for stat selection change
+        document.getElementById('statSelect').addEventListener('change', function() {
+          const selectedStat = this.value;
+          updateChart(selectedStat, data); 
+        });
+      });
+    }
+
+  </script>
+</body>
+</html>
