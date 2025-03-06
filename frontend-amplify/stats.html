@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CardCaddy Stats</title>
-  <!-- Bootstrap CSS (v4) -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css">
+  <!-- Bootstrap CSS (v5) -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-Zenh87qX5JnK2Jl0vWa8Ck2rdkQ2Bzep5IDxbcnCeuOxjzrPF/et3URy9Bv1WTRi" crossorigin="anonymous">
   <style>
     /* Optional custom styles */
     body {
@@ -16,21 +16,20 @@
 <body>
   <!-- Top Navbar with always-collapsed hamburger menu and dark background -->
   <nav class="navbar navbar-dark bg-dark fixed-top">
-    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarMenu" 
-            aria-controls="navbarMenu" aria-expanded="false" aria-label="Toggle navigation">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-    <a class="navbar-brand" href="#">CardCaddy Stats</a>
-    <div class="collapse navbar-collapse" id="navbarMenu">
-      <ul class="navbar-nav">
-        <li class="nav-item">
-          <a class="nav-link" href="index.html">Scan Golf Card</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="stats.html">Stats</a>
-        </li>
-        <!-- Add more menu items as needed -->
-      </ul>
+    <div class="container-fluid">
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMenu" 
+                aria-controls="navbarMenu" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+        </button>
+        <a class="navbar-brand" href="#">CardCaddy Stats</a>
+        <div class="collapse navbar-collapse" id="navbarMenu">
+        <ul class="navbar-nav">
+            <li class="nav-item">
+            <a class="nav-link" href="index.html">Scan Golf Card</a>
+            </li>
+            <!-- Add more menu items as needed -->
+        </ul>
+        </div>
     </div>
   </nav>
 
@@ -53,18 +52,6 @@
               Handicap 
               <button class="btn btn-sm btn-outline-secondary sort" data-sort="handicap">Sort</button>
             </th>
-            <th>
-              Avg Par (3) 
-              <button class="btn btn-sm btn-outline-secondary sort" data-sort="avgPar3">Sort</button>
-            </th>
-            <th>
-              Avg Par (4) 
-              <button class="btn btn-sm btn-outline-secondary sort" data-sort="avgPar4">Sort</button>
-            </th>
-            <th>
-              Avg Par (5) 
-              <button class="btn btn-sm btn-outline-secondary sort" data-sort="avgPar5">Sort</button>
-            </th>
             <th>Individual Stats</th>
           </tr>
         </thead>
@@ -74,9 +61,6 @@
             <td>Player One</td>
             <td>85</td>
             <td>10</td>
-            <td>6.00</td>
-            <td>7.40</td>
-            <td>9.25</td>
             <td>
               <a href="individual-stats.html?playerId=1" class="btn btn-sm btn-primary">View</a>
             </td>
@@ -85,9 +69,6 @@
             <td>Player Two</td>
             <td>90</td>
             <td>15</td>
-            <td>5.50</td>
-            <td>7.00</td>
-            <td>9.00</td>
             <td>
               <a href="individual-stats.html?playerId=2" class="btn btn-sm btn-primary">View</a>
             </td>
@@ -98,10 +79,9 @@
     </div>
   </div>
 
-  <!-- Bootstrap and dependencies -->
-  <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
-  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+  <!-- Bootstrap and dependencies for Bootstrap 5 -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-OERcA2EqjJCMA+/3y+gxIOqMEjwtxJY7qPCqsdltbNJuaOe923+mo//f6V8Qbsw3" crossorigin="anonymous"></script>
+  
   <!-- Optional: Sorting functionality can be added via custom JavaScript or a library -->
   <script>
     // Example: Attach click events to sort buttons here.
