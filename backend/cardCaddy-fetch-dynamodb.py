@@ -1,8 +1,12 @@
 import boto3
 import json
 
-# Initialize DynamoDB client
+# Initialize DynamoDB resource
 dynamodb = boto3.resource('dynamodb')
+
+# Connect to DynamoDB tables
+ROUND_TABLE = dynamodb.Table("cardcaddy_round")
+PLAYER_TABLE = dynamodb.Table("cardcaddy_player")
 
 def lambda_handler(event, context):
     try:
@@ -10,18 +14,25 @@ def lambda_handler(event, context):
         table = dynamodb.Table(table_param)
         wants_all_players = event['queryStringParameters'].get('want_all_players', None) if 'queryStringParameters' in event else None
         playersNamesOrId = event['queryStringParameters'].get('playersNamesOrId', None) if 'queryStringParameters' in event else event.get('playersNamesOrId', None)
-        query = None
 
+        playerId = event['queryStringParameters'].get('playerId', None) if 'queryStringParameters' in event else None
         all_players_stats = event['queryStringParameters'].get('get_all_players_stats', None) if 'queryStringParameters' in event else None
-        
+        individual_all_stats = event['queryStringParameters'].get('get_individual_all_stats', None) if 'queryStringParameters' in event else None
+
+        query = None
         if wants_all_players:
             query = get_all_players(table)
-            query = json.dumps(query)  # Ensure the dictionary is converted to a JSON string
+            query = json.dumps(query)  # Ensure the dictionary is converted to JSON string
         elif playersNamesOrId:
             query = get_players_names(table, playersNamesOrId)
         elif all_players_stats:
             query = get_all_players_stats(table) # this needs to be the players table
-            query = json.dumps(query, default=str)  # Ensure the dictionary is converted to a JSON string
+            query = json.dumps(query, default=str)  # Dictionary converted to JSON string and default str because it has Decimals
+        elif individual_all_stats:
+            if playerId:
+                query = get_individual_all_stats(table, playerId) # table is round
+            else: 
+                query = "Need playerID"
 
         return {
             "statusCode": 200,
@@ -94,3 +105,34 @@ def get_all_players_stats(table):
     }
 
     return players_stats_dict
+
+def get_player_rounds(playerID):
+    return PLAYER_TABLE.get_item(Key={'player_id': playerID})['Item']['rounds_played']
+
+def get_individual_all_stats(table, playerID):
+    rounds_ids = get_player_rounds(playerID)  # Fetch all round IDs for the player
+
+    rounds_info = []
+    for round_id in rounds_ids:
+        response = table.get_item(Key={'round_id': round_id})
+        
+        if 'Item' in response:
+            round_data = response['Item']
+
+            # Extract the relevant data
+            round_entry = {
+                'round_id': round_data['round_id'],
+                'golf_course': round_data['golf_course'],
+                'player_stats': None  # Placeholder
+            }
+
+            # Filter the players list to keep only the matching playerID
+            players = round_data.get('players', [])  # Get players list safely
+            for player in players:
+                if player.get('player_id') == playerID:
+                    round_entry['player_stats'] = player  # Store player's data
+                    break  # Stop searching once the player is found
+
+            rounds_info.append(round_entry)
+
+    return rounds_info
