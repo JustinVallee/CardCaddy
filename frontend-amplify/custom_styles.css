@@ -2,7 +2,7 @@ html, body {
     min-height: 100vh; /* Ensures the background covers the full viewport */
     margin: 0;
     padding: 0;
-    background-color: white;
+    background-color: rgb(33 37 41) !important;
     background-image: url('background.jpg'); /* Replace with your image path */
     background-size: cover; /* Ensures the image covers the whole background */
     background-repeat: no-repeat; /* Prevents repeating */
