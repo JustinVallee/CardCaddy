@@ -459,12 +459,13 @@ function showStats(round_data) {
     const tableHeader = document.createElement('thead');
     const headerRow = document.createElement('tr');
     headerRow.style = '--bs-table-bg: #28a745; !important"'
-    const headers = ['Player', 'Total Score', 'Handicap', 'Par 3 Avg', 'Par 4 Avg', 'Par 5 Avg'];
+    const headers = ['Player', 'Total Score', 'Handicap', 'Par&nbsp;3 Avg', 'Par&nbsp;4 Avg', 'Par&nbsp;5 Avg'];
     headers.forEach(headerText => {
         const th = document.createElement('th');
-        th.textContent = headerText;
+        th.innerHTML = headerText
         headerRow.appendChild(th);
     });
+
     tableHeader.appendChild(headerRow);
     statsTable.appendChild(tableHeader);
 
