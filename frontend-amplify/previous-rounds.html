@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CardCaddy Stats</title>
+  <title>Previous Rounds</title>
   <!-- Bootstrap CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
@@ -13,98 +13,103 @@
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
+        <a class="navbar-brand" href="#">Previous Rounds</a>
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav">
                 <li class="nav-item">
                   <a class="nav-link" href="index.html">Scan Golf Card</a>
-                </li>  
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="stats.html">Stats</a>
+              </li>   
             </ul>
         </div>
     </div>
 </nav>
 
 <div class="container mt-4">
-    <h2>Previous Rounds</h2>
     <div id="rounds-container"></div>
+    <!-- Load More Button -->
+    <button id="load-more-btn" class="btn btn-primary my-3">Load More</button>
 </div>
 
-  <!-- Bootstrap JS -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
-  <script>
-    function get_rounds(numRounds) {
-      fetch(`https://vopx2v8s2d.execute-api.us-east-2.amazonaws.com/dev/cardcaddy_round?get_last_rounds=True&numRounds=${numRounds}`)
-        .then(response => response.json())
-        .then(data => {
-          console.log(data);
-          generateTables(data.rounds);  // Pass rounds data to generateTables
-        })
-        .catch(error => {
-          console.error('Error fetching rounds:', error);
-        });
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  let currentRounds = 0; // Track the number of rounds currently displayed
+
+  function get_rounds(numRounds) {
+    fetch(`https://vopx2v8s2d.execute-api.us-east-2.amazonaws.com/dev/cardcaddy_round?get_last_rounds=True&numRounds=${numRounds}`)
+      .then(response => response.json())
+      .then(data => {
+        console.log(data);
+        generateTables(data.rounds); // Pass rounds data to generateTables
+        currentRounds = numRounds; // Update the current number of rounds
+
+        // Disable the button if fewer than 3 rounds are returned
+        if (data.rounds.length < 3) {
+          document.getElementById('load-more-btn').disabled = true;
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching rounds:', error);
+      });
+  }
+
+  // Function to dynamically generate the tables for each round using HTML injection
+  function generateTables(rounds) {
+    console.log('Rounds data:', rounds); // Log the rounds data to check its structure
+    const roundsContainer = document.getElementById('rounds-container');
+
+    // Check if rounds is an array before processing
+    if (Array.isArray(rounds)) {
+      let tablesHTML = ''; // Initialize an empty string to hold all tables HTML
+
+      rounds.forEach(round => {
+        let tableHTML = `
+          <h3>${round.golf_course} - ${round.date}</h3>
+          <div class="table-responsive">
+            <table class="table table-bordered table-dark">
+              <tr style="--bs-table-bg: #28a745; !important">
+                <th>HOLE</th>
+                ${Array.from({ length: 18 }, (_, i) => `<th>${i + 1}</th>`).join('')}
+                <th>Total</th> <!-- Add Total header -->
+              </tr>
+              <tr style="--bs-table-bg: #0d6efd; !important">
+                <th>PAR</th>
+                ${round.hole_pars.map(par => `<td>${par}</td>`).join('')}
+                <td>${round.par}</td> <!-- Add par total -->
+              </tr>
+              ${round.players.map(player => `
+                <tr>
+                  <td>${player.name}</td>
+                  ${player.scores.map(score => `<td>${score}</td>`).join('')}
+                  <td>${player.total_score}</td> <!-- Add player's total score -->
+                </tr>
+              `).join('')}
+            </table>
+          </div>
+        `;
+        tablesHTML += tableHTML; // Append each table's HTML to the main string
+      });
+
+      roundsContainer.innerHTML += tablesHTML; // Append new tables to the existing ones
+    } else {
+      console.error('Rounds data is not an array:', rounds);
     }
+  }
 
-    // Function to dynamically generate the tables for each round
-    function generateTables(rounds) {
-      console.log('Rounds data:', rounds); // Log the rounds data to check its structure
-      const roundsContainer = document.getElementById('rounds-container');
-      roundsContainer.innerHTML = ''; // Clear any existing content
+  // Function to handle the "Load More" button click
+  function handleLoadMore() {
+    const newRounds = currentRounds + 3; // Increment by 3
+    get_rounds(newRounds); // Fetch the next set of rounds
+  }
 
-      // Check if rounds is an array before calling forEach
-      if (Array.isArray(rounds)) {
-        rounds.forEach(round => {
-          const table = document.createElement('table');
-          table.classList.add('table', 'table-bordered', 'table-dark', 'table-responsive');
+  // Add event listener to the "Load More" button
+  document.getElementById('load-more-btn').addEventListener('click', handleLoadMore);
 
-          // Create the header row with HOLE numbers
-          let row = document.createElement('tr');
-          row.style.backgroundColor = '#28a745'; // Green background for HOLE row
-          let th = document.createElement('th');
-          th.textContent = 'HOLE';
-          row.appendChild(th);
-          for (let i = 1; i <= 18; i++) {
-            let th = document.createElement('th');
-            th.textContent = i;
-            row.appendChild(th);
-          }
-          table.appendChild(row);
-
-          // Create the PAR row
-          row = document.createElement('tr');
-          row.style.backgroundColor = '#0d6efd'; // Blue background for PAR row
-          th = document.createElement('th');
-          th.textContent = 'PAR';
-          row.appendChild(th);
-          round.hole_pars.forEach(par => {
-            let td = document.createElement('td');
-            td.textContent = par;
-            row.appendChild(td);
-          });
-          table.appendChild(row);
-
-          // Add player rows
-          round.players.forEach(player => {
-            row = document.createElement('tr');
-            let td = document.createElement('td');
-            td.textContent = player.name;
-            row.appendChild(td);
-            player.scores.forEach(score => {
-              let td = document.createElement('td');
-              td.textContent = score;
-              row.appendChild(td);
-            });
-            table.appendChild(row);
-          });
-
-          // Append the table to the container
-          roundsContainer.appendChild(table);
-        });
-      } else {
-        console.error('Rounds data is not an array:', rounds);
-      }
-    }
-
-    // Fetch data on page load
-    get_rounds(3);
-  </script>
+  // Fetch initial data on page load
+  get_rounds(3);
+</script>
 </body>
 </html>
