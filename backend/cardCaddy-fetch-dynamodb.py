@@ -18,6 +18,9 @@ def lambda_handler(event, context):
         playerId = event['queryStringParameters'].get('playerId', None) if 'queryStringParameters' in event else None
         all_players_stats = event['queryStringParameters'].get('get_all_players_stats', None) if 'queryStringParameters' in event else None
         individual_all_stats = event['queryStringParameters'].get('get_individual_all_stats', None) if 'queryStringParameters' in event else None
+        
+        get_last_rounds_flag = event['queryStringParameters'].get('get_last_rounds', None) if 'queryStringParameters' in event else None
+        number_of_rounds = int(event['queryStringParameters'].get('numRounds', 3)) if 'queryStringParameters' in event else 3  # Default to 3 if no value is given
 
         query = None
         if wants_all_players:
@@ -37,6 +40,9 @@ def lambda_handler(event, context):
                     query = str(e)  
             else: 
                 query = "Need playerId"
+        elif get_last_rounds_flag:
+            rounds = get_last_rounds(table, number_of_rounds)
+            query = json.dumps({"rounds": rounds}, default=str)
 
         return {
             "statusCode": 200,
@@ -141,3 +147,16 @@ def get_individual_all_stats(table, playerID):
             rounds_info.append(round_entry)
 
     return rounds_info
+
+def get_last_rounds(table, number_of_rounds):
+    skip_value = number_of_rounds - 3  # Calculate skip value
+
+    response = table.scan()  # Scan the entire table
+    rounds = sorted(response['Items'], key=lambda x: int(x['round_id'].split('_')[1]), reverse=True)  # Sort rounds by round_id
+    
+    if len(rounds) < 3:
+        selected_rounds = rounds[:len(rounds)]  # Return all available rounds
+    else:
+        selected_rounds = rounds[skip_value: skip_value + 3]  # Return the next 3 rounds after skipping
+
+    return selected_rounds

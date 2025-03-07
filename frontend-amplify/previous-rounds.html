@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CardCaddy Stats</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<nav class="navbar navbar-dark bg-dark">
+    <div class="container-fluid">
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                  <a class="nav-link" href="index.html">Scan Golf Card</a>
+                </li>  
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="container mt-4">
+    <h2>Previous Rounds</h2>
+    <div id="rounds-container"></div>
+</div>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    function get_rounds(numRounds) {
+      fetch(`https://vopx2v8s2d.execute-api.us-east-2.amazonaws.com/dev/cardcaddy_round?get_last_rounds=True&numRounds=${numRounds}`)
+        .then(response => response.json())
+        .then(data => {
+          console.log(data);
+          generateTables(data.rounds);  // Pass rounds data to generateTables
+        })
+        .catch(error => {
+          console.error('Error fetching rounds:', error);
+        });
+    }
+
+    // Function to dynamically generate the tables for each round
+    function generateTables(rounds) {
+      console.log('Rounds data:', rounds); // Log the rounds data to check its structure
+      const roundsContainer = document.getElementById('rounds-container');
+      roundsContainer.innerHTML = ''; // Clear any existing content
+
+      // Check if rounds is an array before calling forEach
+      if (Array.isArray(rounds)) {
+        rounds.forEach(round => {
+          const table = document.createElement('table');
+          table.classList.add('table', 'table-bordered', 'table-dark', 'table-responsive');
+
+          // Create the header row with HOLE numbers
+          let row = document.createElement('tr');
+          row.style.backgroundColor = '#28a745'; // Green background for HOLE row
+          let th = document.createElement('th');
+          th.textContent = 'HOLE';
+          row.appendChild(th);
+          for (let i = 1; i <= 18; i++) {
+            let th = document.createElement('th');
+            th.textContent = i;
+            row.appendChild(th);
+          }
+          table.appendChild(row);
+
+          // Create the PAR row
+          row = document.createElement('tr');
+          row.style.backgroundColor = '#0d6efd'; // Blue background for PAR row
+          th = document.createElement('th');
+          th.textContent = 'PAR';
+          row.appendChild(th);
+          round.hole_pars.forEach(par => {
+            let td = document.createElement('td');
+            td.textContent = par;
+            row.appendChild(td);
+          });
+          table.appendChild(row);
+
+          // Add player rows
+          round.players.forEach(player => {
+            row = document.createElement('tr');
+            let td = document.createElement('td');
+            td.textContent = player.name;
+            row.appendChild(td);
+            player.scores.forEach(score => {
+              let td = document.createElement('td');
+              td.textContent = score;
+              row.appendChild(td);
+            });
+            table.appendChild(row);
+          });
+
+          // Append the table to the container
+          roundsContainer.appendChild(table);
+        });
+      } else {
+        console.error('Rounds data is not an array:', rounds);
+      }
+    }
+
+    // Fetch data on page load
+    get_rounds(3);
+  </script>
+</body>
+</html>
