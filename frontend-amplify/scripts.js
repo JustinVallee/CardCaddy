@@ -91,25 +91,28 @@ function addNewPlayersToSelected() {
     return allPlayers; // Return the final CSV string
 }
 
-// Function to upload the image to S3
-function uploadImage(file){
+// Function to upload the image to S3 (using async/await)
+async function uploadImage(file) {
+    try {
+        const response = await fetch(
+            `https://tmluaj55ij.execute-api.us-east-2.amazonaws.com/dev/jv-image-processing-bucket/${file.name}`,
+            {
+                method: 'PUT',
+                headers: {
+                    "Content-Type": file.type, // Automatically set the correct MIME type
+                },
+                body: file, // Pass the file object directly as the body
+            }
+        );
 
-   fetch(`https://tmluaj55ij.execute-api.us-east-2.amazonaws.com/dev/jv-image-processing-bucket/${file.name}`, {
-        method: 'PUT',
-        headers: {
-            "Content-Type": file.type // Automatically set the correct MIME type
-        },
-        body: file // Pass the file object directly as the body
-    })
-    .then(response => {
         if (!response.ok) {
             throw new Error(`Upload failed. Status: ${response.status}`);
         }
+
         console.log("Image uploaded successfully");
-    })
-    .catch(error => {
+    } catch (error) {
         console.error("Error uploading image:", error);
-    });
+    }
 }
 
 // Function to get cardCaddy-ocr result for the image
@@ -186,10 +189,32 @@ function getOcr(file,players,condition,timestamp){
             // Adds save button
             document.getElementById("saveBtnDiv").innerHTML = '<button id="save-stats-btn" type="submit" class="btn btn-primary my-2"><i class="fa-solid fa-floppy-disk"></i> Save and Get Round Stats</button>';
 
+            // Show Uploaded image
+            const fileInput = document.getElementById('imageInput');
+            const previewDiv = document.getElementById('preview');
+      
+            if (fileInput.files && fileInput.files[0]) {
+              const reader = new FileReader();
+      
+              reader.onload = function (e) {
+                // Create an image element and set its source
+                const img = document.createElement('img');
+                img.src = e.target.result;
+                img.alt = "Uploaded Image";
+      
+                // Clear previous preview and display the new image
+                previewDiv.innerHTML = '';
+                previewDiv.appendChild(img);
+              };
+      
+              // Read the selected file as a Data URL
+              reader.readAsDataURL(fileInput.files[0]);
+            }
+
         })
         .catch(error => {
             console.error("Error getting cardCaddy-ocr or Script in Fetch:", error);
-            document.getElementById("digitalScorecard").innerText = "Error from response cardCaddy-ocr or Script in Fetch";
+            document.getElementById("digitalScorecard").innerText = `Error from response cardCaddy-ocr or Script in Fetch -- Error:${error}`;
             // Hide the spinner in case of error
             spinner.style.display = 'none';
         });
