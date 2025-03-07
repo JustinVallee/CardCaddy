@@ -186,6 +186,28 @@ function getOcr(file,players,condition,timestamp){
             // Adds save button
             document.getElementById("saveBtnDiv").innerHTML = '<button id="save-stats-btn" type="submit" class="btn btn-primary my-2"><i class="fa-solid fa-floppy-disk"></i> Save and Get Round Stats</button>';
 
+            // Show Uploaded image
+            const fileInput = document.getElementById('imageInput');
+            const previewDiv = document.getElementById('preview');
+      
+            if (fileInput.files && fileInput.files[0]) {
+              const reader = new FileReader();
+      
+              reader.onload = function (e) {
+                // Create an image element and set its source
+                const img = document.createElement('img');
+                img.src = e.target.result;
+                img.alt = "Uploaded Image";
+      
+                // Clear previous preview and display the new image
+                previewDiv.innerHTML = '';
+                previewDiv.appendChild(img);
+              };
+      
+              // Read the selected file as a Data URL
+              reader.readAsDataURL(fileInput.files[0]);
+            }
+
         })
         .catch(error => {
             console.error("Error getting cardCaddy-ocr or Script in Fetch:", error);
