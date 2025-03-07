@@ -364,7 +364,6 @@ def clean_table(table_matrix):
 
     return cleaned_matrix  
 
-
 # Final Step
 def build_html_table(clean_matrix, confidence_matrix, found_players, suggested_matches, players_names):
     """Builds and returns a HTML table from the matrix."""

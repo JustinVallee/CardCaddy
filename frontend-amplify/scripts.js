@@ -214,7 +214,7 @@ function getOcr(file,players,condition,timestamp){
         })
         .catch(error => {
             console.error("Error getting cardCaddy-ocr or Script in Fetch:", error);
-            document.getElementById("digitalScorecard").innerText = "Error from response cardCaddy-ocr or Script in Fetch";
+            document.getElementById("digitalScorecard").innerText = `Error from response cardCaddy-ocr or Script in Fetch -- Error:${error}`;
             // Hide the spinner in case of error
             spinner.style.display = 'none';
         });
