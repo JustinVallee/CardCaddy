@@ -38,7 +38,7 @@ function submitFormOCR(event) {
     mainOCR(); // If validation passes, call the main function
 }
 
-function mainOCR(){
+async function mainOCR(){
     // Get values from the input fields
     const players = addNewPlayersToSelected();
     const condition = document.getElementById('conditionInput').value;
@@ -52,7 +52,10 @@ function mainOCR(){
     const file = fileInput.files[0];
     document.getElementById("digitalScorecard").innerText = ``;
     if(file) {
-        uploadImage(file)
+        // Get the spinner element and Show the spinner
+        const spinner = document.getElementById("loading-spinner");
+        spinner.style.display = 'inline-block';
+        await uploadImage(file)
         getOcr(file,players,condition,timestamp)
     } else {
         console.error("No file selected");
@@ -117,17 +120,16 @@ async function uploadImage(file) {
 
 // Function to get cardCaddy-ocr result for the image
 function getOcr(file,players,condition,timestamp){
-    // Get the spinner element and Show the spinner
-    const spinner = document.getElementById("loading-spinner");
-    spinner.style.display = 'inline-block';
 
     // Send the request to the API REMOVED https for testing
     fetch(`https://yoq351n2v9.execute-api.us-east-2.amazonaws.com/dev/jv-image-processing-bucket/${file.name}?players=${players}&condition=${condition}&timestamp=${timestamp}`)
         .then(response => response.json()) // Parse the JSON response
         .then(data => {
+            
             console.log("CardCaddy-ocr response:", data);
 
             // Hide the spinner once the response is processed
+            const spinner = document.getElementById("loading-spinner");
             spinner.style.display = 'none';
             showSuccessMessage()
      
@@ -137,8 +139,12 @@ function getOcr(file,players,condition,timestamp){
             document.getElementById('digitalScorecard').appendChild(heading);
 
             // Set the innerHTML of the container to the HTML table from data.result.html_table
-            document.getElementById('digitalScorecard').innerHTML += data.result.html_table;
-           
+            if (data.result.html_table) {
+                document.getElementById('digitalScorecard').innerHTML += data.result.html_table;
+            } else {
+                document.getElementById('digitalScorecard').innerHTML += data.result.error;
+            }
+            
             // Validate the table inputs
             validateTableInputs();
 
@@ -214,7 +220,8 @@ function getOcr(file,players,condition,timestamp){
         })
         .catch(error => {
             console.error("Error getting cardCaddy-ocr or Script in Fetch:", error);
-            document.getElementById("digitalScorecard").innerText = `Error from response cardCaddy-ocr or Script in Fetch -- Error:${error}`;
+            document.getElementById("digitalScorecard").innerText = `Image not detected. Please retake the picture. Tips: Ensure proper lighting (avoid glare), use portrait mode, and make sure the numbers are dark (not light) and clearly visible within the cells.`;
+
             // Hide the spinner in case of error
             spinner.style.display = 'none';
         });

@@ -310,14 +310,15 @@ def clean_table(table_matrix):
 
     # Rebuild the table with "Hole" and "Par" rows at the top
     table_matrix = [hole_row, par_row] + other_rows
-
+    print(hole_row)
+    print(par_row)
     # Step 2: Remove unnecessary columns
     # Find the index of "9" and "10" in the "Hole" row
     try:
         index_9 = hole_row.index("9")
         index_10 = hole_row.index("10")
     except ValueError:
-        raise ValueError("The 'Hole' row must contain '9' and '10'.")
+        raise ValueError(f"The 'Hole' row must contain '9' and '10'.{hole_row}")
 
     # Track indexes to remove
     indexes_to_remove = set()
@@ -435,7 +436,7 @@ def ocr(bucket_name, filename, players_list):
         img_bytes = response["Body"].read()
     except Exception as e:
         print(f"Error retrieving image from S3: {str(e)}")
-        return {"error": "Failed to retrieve image from S3"}
+        return {"error": str(e)}
 
     # Perform OCR using Textract
     try:
@@ -452,6 +453,7 @@ def ocr(bucket_name, filename, players_list):
     tables = [block for block in block_dict.values() if block["BlockType"] == "TABLE"]
 
     if len(tables) == 1: # If there's only one table
+        print(f'{len(tables)} table found')
         sorted_textract_table = sort_textract_table(tables[0], block_dict)
         table_matrix, confidence_matrix, found_players, suggested_matches = build_table(sorted_textract_table, block_dict, players_names)
         cleaned_matrix = clean_table(table_matrix)
@@ -459,7 +461,7 @@ def ocr(bucket_name, filename, players_list):
         return {
             "html_table": html_table
         }
-
+    print(f'{len(tables)} tables found')
     # If there are multiple tables, merge them
     raw_1st_textract_table = tables[0]
     raw_2nd_textract_table = tables[1]
