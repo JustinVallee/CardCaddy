@@ -220,7 +220,7 @@ function getOcr(file,players,condition,timestamp){
         })
         .catch(error => {
             console.error("Error getting cardCaddy-ocr or Script in Fetch:", error);
-            document.getElementById("digitalScorecard").innerText = `Image not detected. Please retake the picture. Tips: Ensure proper lighting (avoid glare), use portrait mode, and make sure the numbers are dark (not light) and clearly visible within the cells.`;
+            document.getElementById("digitalScorecard").innerHTML = `<p>Image not detected. Please retake the picture. Tips: Ensure proper lighting (avoid glare), use portrait mode, and make sure the numbers are dark (not light) and clearly visible within the cells.</p><a href="manual-input.html"><button type="button" id="manualBtn" class="btn btn-warning my-2">Try Manual Input</button></a>`;
 
             // Hide the spinner in case of error
             spinner.style.display = 'none';
@@ -401,6 +401,7 @@ function processScorecard() {
     const playerSelect = document.getElementById('playerInput');
     const playerOptions = Array.from(playerSelect.options);
 
+    console.log("Table rows:", rows);
     // Process each player's row
     for (let i = 2; i < rows.length; i++) {
         const playerRow = rows[i];
@@ -440,7 +441,7 @@ function processScorecard() {
         const playerId = playerOption ? playerOption.value : playerName;
 
         handicap = total - round_scores_obj.par
-
+        console.log(round_scores_obj)
         // Add player data to round_scores_obj
         round_scores_obj.players.push({
             player_id: playerId, // Use player ID if available, otherwise use the name

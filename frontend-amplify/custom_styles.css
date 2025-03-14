@@ -8,11 +8,14 @@ html, body {
     background-position: center center; /* Centers the image */
     background-attachment: fixed; /* Keeps the background from moving */
     /* background: linear-gradient(to right, lightblue, lightgreen); */
-    /*background-color: rgb(176, 222, 204);*/
     /* Add padding for safe areas iphone bezels */
     /*padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);*/
 }
+/*html[data-file="manual-input.html"] body {
+    background-color: white;
+    background: linear-gradient(to right, lightblue, lightgreen);
+}*/
 
 body{
     background-color: rgb(33 37 41);
